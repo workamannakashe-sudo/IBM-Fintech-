@@ -1,5 +1,5 @@
 # IBM-Fintech
-Here’s a **student-friendly, professional README.md** you can use for your GitHub project. I’ve kept it focused on the **AI for Financial Literacy** idea and the IBM Bob use case.
+Here’s a **student-friendly, professional README.md** you can use for your GitHub project. I’ve kept it focused on the **AI for Financial Literacy** idea and the IBM Bob use case
 
 # 💰 AI for Financial Literacy
 
