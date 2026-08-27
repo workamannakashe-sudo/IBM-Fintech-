@@ -341,28 +341,53 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // State Declarations
   const [profile, setProfile] = useState<StudentProfile>(() => {
-    const data = localStorage.getItem("fw_profile");
-    return data ? JSON.parse(data) : getProfileSeed(currency, userType);
+    try {
+      const data = localStorage.getItem("fw_profile");
+      return data ? JSON.parse(data) : getProfileSeed(currency, userType);
+    } catch (e) {
+      console.warn("Failed to parse fw_profile from localStorage, falling back to seed data", e);
+      return getProfileSeed(currency, userType);
+    }
   });
 
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
-    const data = localStorage.getItem("fw_transactions");
-    return data ? JSON.parse(data) : getTransactionsSeed(currency, userType);
+    try {
+      const data = localStorage.getItem("fw_transactions");
+      return data ? JSON.parse(data) : getTransactionsSeed(currency, userType);
+    } catch (e) {
+      console.warn("Failed to parse fw_transactions from localStorage, falling back to seed data", e);
+      return getTransactionsSeed(currency, userType);
+    }
   });
 
   const [goals, setGoals] = useState<SavingsGoal[]>(() => {
-    const data = localStorage.getItem("fw_goals");
-    return data ? JSON.parse(data) : getGoalsSeed(currency);
+    try {
+      const data = localStorage.getItem("fw_goals");
+      return data ? JSON.parse(data) : getGoalsSeed(currency);
+    } catch (e) {
+      console.warn("Failed to parse fw_goals from localStorage, falling back to seed data", e);
+      return getGoalsSeed(currency);
+    }
   });
 
   const [loans, setLoans] = useState<StudentLoan[]>(() => {
-    const data = localStorage.getItem("fw_loans");
-    return data ? JSON.parse(data) : getLoansSeed(currency, userType);
+    try {
+      const data = localStorage.getItem("fw_loans");
+      return data ? JSON.parse(data) : getLoansSeed(currency, userType);
+    } catch (e) {
+      console.warn("Failed to parse fw_loans from localStorage, falling back to seed data", e);
+      return getLoansSeed(currency, userType);
+    }
   });
 
   const [budgets, setBudgets] = useState<Record<string, number>>(() => {
-    const data = localStorage.getItem("fw_budgets");
-    return data ? JSON.parse(data) : getBudgetsSeed(currency, userType);
+    try {
+      const data = localStorage.getItem("fw_budgets");
+      return data ? JSON.parse(data) : getBudgetsSeed(currency, userType);
+    } catch (e) {
+      console.warn("Failed to parse fw_budgets from localStorage, falling back to seed data", e);
+      return getBudgetsSeed(currency, userType);
+    }
   });
 
   const [burnRateMultiplier, setBurnRateMultiplier] = useState(1.0);

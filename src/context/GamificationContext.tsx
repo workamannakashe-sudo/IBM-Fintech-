@@ -51,21 +51,37 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   });
 
   const [badges, setBadges] = useState<Badge[]>(() => {
-    const val = localStorage.getItem("fw_badges_list");
-    // Seed 1 unlocked badge ("Budget Rookie")
-    return val ? JSON.parse(val) : [
-      { ...ALL_BADGES[0], unlockedAt: "2026-08-20" }
-    ];
+    try {
+      const val = localStorage.getItem("fw_badges_list");
+      // Seed 1 unlocked badge ("Budget Rookie")
+      return val ? JSON.parse(val) : [
+        { ...ALL_BADGES[0], unlockedAt: "2026-08-20" }
+      ];
+    } catch (e) {
+      console.warn("Failed to parse fw_badges_list from localStorage, falling back to seed data", e);
+      return [
+        { ...ALL_BADGES[0], unlockedAt: "2026-08-20" }
+      ];
+    }
   });
 
   // Logged days for the GitHub heatmap calendar
   const [loggingHistory, setLoggingHistory] = useState<string[]>(() => {
-    const val = localStorage.getItem("fw_log_history");
-    return val ? JSON.parse(val) : [
-      "2026-08-01", "2026-08-05", "2026-08-08", "2026-08-10", 
-      "2026-08-12", "2026-08-15", "2026-08-18", "2026-08-20", 
-      "2026-08-22", "2026-08-24"
-    ];
+    try {
+      const val = localStorage.getItem("fw_log_history");
+      return val ? JSON.parse(val) : [
+        "2026-08-01", "2026-08-05", "2026-08-08", "2026-08-10", 
+        "2026-08-12", "2026-08-15", "2026-08-18", "2026-08-20", 
+        "2026-08-22", "2026-08-24"
+      ];
+    } catch (e) {
+      console.warn("Failed to parse fw_log_history from localStorage, falling back to seed data", e);
+      return [
+        "2026-08-01", "2026-08-05", "2026-08-08", "2026-08-10", 
+        "2026-08-12", "2026-08-15", "2026-08-18", "2026-08-20", 
+        "2026-08-22", "2026-08-24"
+      ];
+    }
   });
 
   const [unlockedBadge, setUnlockedBadge] = useState<Badge | null>(null);
