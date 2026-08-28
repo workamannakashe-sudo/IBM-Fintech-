@@ -206,3 +206,77 @@ Focus on encouraging language. Keep your answers concise, practical, and under 3
     return getHeuristicResponse();
   }
 }
+
+/**
+ * Chat conversation with Coach FinWise, providing detailed, structured money advice.
+ */
+export async function askCoach(params: {
+  message: string;
+  chatHistory: Array<{ role: "user" | "model"; parts: string }>;
+  financialContext: {
+    liquidBalance: number;
+    monthlyIncome: number;
+    totalSpentThisMonth: number;
+    dailyBurnRate: number;
+    budgetLimit: number;
+    savingsGoals: Array<{ name: string; target: number; current: number }>;
+    recentTransactions: Array<{ date: string; description: string; amount: number; category: string }>;
+  };
+}): Promise<string> {
+  const { message, chatHistory, financialContext } = params;
+  const lowercaseMsg = message.toLowerCase();
+
+  const getHeuristicResponse = (): string => {
+    if (lowercaseMsg.includes("groceries") || lowercaseMsg.includes("food") || lowercaseMsg.includes("eat")) {
+      return `To optimize your Food & Dining spending:
+1. **Meal Prep**: Plan meals weekly to avoid last-minute dining hall swipes or food deliveries.
+2. **Local Markets**: Buy fresh produce at local markets instead of campus convenience stores where prices are marked up.
+3. **Student Discount Portal**: Always show your student ID for food discounts around campus.`;
+    }
+    if (lowercaseMsg.includes("emergency") || lowercaseMsg.includes("save") || lowercaseMsg.includes("buffer")) {
+      return `Here is a step-by-step strategy to build an emergency fund:
+1. **Target ₹5,000 / $200 first**: Start with a small, achievable target rather than a multi-month goal.
+2. **Automate Transfers**: Set up auto-transfers of 5-10% of your monthly allowance or income on day one.
+3. **High-Yield Savings**: Keep it in a separate, liquid account so you aren't tempted to spend it.`;
+    }
+    return `Here are some standard money tips:
+- Audit your subscriptions: Cancel unused gym passes or streaming trials.
+- Buy books second-hand: Check university forums or library rentals before buying textbooks new.
+- Use campus transportation: Avoid taking commercial cab rides for short commutes.`;
+  };
+
+  if (!genAI) {
+    return getHeuristicResponse();
+  }
+
+  try {
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      systemInstruction: `You are "Coach FinWise", a professional, encouraging, and detail-oriented AI wealth advisor for college students and young professionals.
+Ground your suggestions in the user's real-time financial stats:
+- Balance Cushion: $${financialContext.liquidBalance.toFixed(2)}
+- Income: $${financialContext.monthlyIncome.toFixed(2)}
+- Spent this month: $${financialContext.totalSpentThisMonth.toFixed(2)}
+- Daily burn rate: $${financialContext.dailyBurnRate.toFixed(2)}/day
+- Budget: $${financialContext.budgetLimit.toFixed(2)}
+- Savings Goals: ${financialContext.savingsGoals.map(g => `${g.name} (${g.current}/${g.target})`).join(", ")}
+- Recent transactions: ${financialContext.recentTransactions.slice(0, 5).map(t => `${t.description} ($${t.amount.toFixed(2)})`).join("; ")}
+
+Provide detailed saving suggestions, financial checklists, or budgeting guidance. Keep your answer under 6 sentences. Use bullet points or numbered lists where helpful. Be structured, practical, and highly encouraging.`,
+    });
+
+    const chat = model.startChat({
+      history: chatHistory.map(h => ({
+        role: h.role,
+        parts: [{ text: h.parts }]
+      }))
+    });
+
+    const result = await chat.sendMessage(message);
+    return result.response.text().trim() || getHeuristicResponse();
+  } catch (error) {
+    console.warn("askCoach failed, using heuristics:", error);
+    return getHeuristicResponse();
+  }
+}
+

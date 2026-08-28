@@ -6,7 +6,7 @@ import { APPS_SCRIPT_TEMPLATE } from "../services/sheetsSync";
 import { 
   Coins, LayoutDashboard, ReceiptText, ShieldQuestion, 
   Percent, GraduationCap, CalendarHeart, 
-  RotateCcw, ChevronDown, Sliders, Settings2, FileCode, Check, PiggyBank, LogOut 
+  RotateCcw, ChevronDown, Sliders, Settings2, FileCode, Check, PiggyBank, LogOut, Bot 
 } from "lucide-react";
 
 interface NavbarProps {
@@ -40,6 +40,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
     { id: "affordability", label: "Affordability Check", icon: ShieldQuestion },
     { id: "loans", label: "Loan & EMI", icon: Percent },
     { id: "scholarships", label: userType === "Student" ? "Scholarships" : "Savings Advisor", icon: userType === "Student" ? GraduationCap : PiggyBank },
+    { id: "advisor", label: "AI Advisor", icon: Bot },
     { id: "budget", label: "Budget & Goals", icon: Sliders },
     { id: "habits", label: "Habits/Gamification", icon: CalendarHeart },
   ];

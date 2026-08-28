@@ -16,6 +16,7 @@ import { Loans } from "./pages/Loans";
 import { Scholarships } from "./pages/Scholarships";
 import { Budget } from "./pages/Budget";
 import { Habits } from "./pages/Habits";
+import { Advisor } from "./pages/Advisor";
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -42,6 +43,8 @@ function AppContent() {
         return <Budget />;
       case "habits":
         return <Habits />;
+      case "advisor":
+        return <Advisor />;
       default:
         return <Dashboard setActiveTab={setActiveTab} onOpenQuickLog={() => setQuickLogOpen(true)} />;
     }
