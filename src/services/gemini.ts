@@ -1,5 +1,11 @@
 // FinWise Gemini AI Assistant & Heuristic Fallback Service (gemini.ts)
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import {
+  BOB_CHAT_SYSTEM_PROMPT,
+  ADVISOR_COACH_SYSTEM_PROMPT,
+  AFFORDABILITY_CHECK_SYSTEM_PROMPT,
+  LOAN_COACH_SYSTEM_PROMPT
+} from "../lib/prompts/financialAssistant";
 
 // Read API Key from environment variables (configured via .env)
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY || localStorage.getItem("fw_gemini_api_key") || "";
@@ -179,7 +185,7 @@ export async function askBob(params: {
   try {
     const model = genAI.getGenerativeModel({
       model: "gemini-2.5-flash",
-      systemInstruction: `You are "Bob", a friendly, knowledgeable, and energetic AI financial companion for college students.
+      systemInstruction: `${BOB_CHAT_SYSTEM_PROMPT}
 Ground your answers in the student's real-time financial stats:
 - Liquid cash balance: $${financialContext.liquidBalance.toFixed(2)}
 - Monthly income/allowance: $${financialContext.monthlyIncome.toFixed(2)}
@@ -187,9 +193,7 @@ Ground your answers in the student's real-time financial stats:
 - Daily burn rate: $${financialContext.dailyBurnRate.toFixed(2)}/day
 - Budget envelope limit: $${financialContext.budgetLimit.toFixed(2)}
 - Active savings goals: ${financialContext.savingsGoals.map(g => `${g.name} (Target: $${g.target}, Saved: $${g.current})`).join(", ")}
-- Recent logs: ${financialContext.recentTransactions.slice(0, 5).map(t => `${t.date}: ${t.description} ($${t.amount.toFixed(2)}) [${t.category}]`).join("; ")}
-
-Focus on encouraging language. Keep your answers concise, practical, and under 3 sentences. Provide a direct student-friendly recommendation. Make use of standard symbols.`,
+- Recent logs: ${financialContext.recentTransactions.slice(0, 5).map(t => `${t.date}: ${t.description} ($${t.amount.toFixed(2)}) [${t.category}]`).join("; ")}`,
     });
 
     const chat = model.startChat({
@@ -252,7 +256,7 @@ export async function askCoach(params: {
   try {
     const model = genAI.getGenerativeModel({
       model: "gemini-2.5-flash",
-      systemInstruction: `You are "Coach FinWise", a professional, encouraging, and detail-oriented AI wealth advisor for college students and young professionals.
+      systemInstruction: `${ADVISOR_COACH_SYSTEM_PROMPT}
 Ground your suggestions in the user's real-time financial stats:
 - Balance Cushion: $${financialContext.liquidBalance.toFixed(2)}
 - Income: $${financialContext.monthlyIncome.toFixed(2)}
@@ -260,9 +264,7 @@ Ground your suggestions in the user's real-time financial stats:
 - Daily burn rate: $${financialContext.dailyBurnRate.toFixed(2)}/day
 - Budget: $${financialContext.budgetLimit.toFixed(2)}
 - Savings Goals: ${financialContext.savingsGoals.map(g => `${g.name} (${g.current}/${g.target})`).join(", ")}
-- Recent transactions: ${financialContext.recentTransactions.slice(0, 5).map(t => `${t.description} ($${t.amount.toFixed(2)})`).join("; ")}
-
-Provide detailed saving suggestions, financial checklists, or budgeting guidance. Keep your answer under 6 sentences. Use bullet points or numbered lists where helpful. Be structured, practical, and highly encouraging.`,
+- Recent transactions: ${financialContext.recentTransactions.slice(0, 5).map(t => `${t.description} ($${t.amount.toFixed(2)})`).join("; ")}`,
     });
 
     const chat = model.startChat({
@@ -276,6 +278,176 @@ Provide detailed saving suggestions, financial checklists, or budgeting guidance
     return result.response.text().trim() || getHeuristicResponse();
   } catch (error) {
     console.warn("askCoach failed, using heuristics:", error);
+    return getHeuristicResponse();
+  }
+}
+
+/**
+ * AI-backed dynamic affordability checks.
+ */
+export async function askAffordability(params: {
+  itemName: string;
+  itemPrice: number;
+  itemCategory: string;
+  financialContext: {
+    liquidBalance: number;
+    monthlyIncome: number;
+    totalSpentThisMonth: number;
+    dailyBurnRate: number;
+    savingsGoals: Array<{ name: string; target: number; current: number }>;
+  };
+}): Promise<{
+  verdict: "YES" | "CAUTION" | "NO";
+  confidenceScore: number;
+  reason: string;
+  delayDays: number;
+  alternative: string;
+}> {
+  const { itemName, itemPrice, itemCategory, financialContext } = params;
+
+  const getHeuristicResult = () => {
+    let verdict: "YES" | "CAUTION" | "NO" = "YES";
+    let confidenceScore = 100;
+    let reason = "";
+    let delayDays = 0;
+
+    if (itemPrice > financialContext.liquidBalance) {
+      verdict = "NO";
+      confidenceScore = 15;
+      reason = `This purchase exceeds your entire remaining cash cushion ($${financialContext.liquidBalance.toFixed(2)}) for the month. Buying this will trigger an overdraft.`;
+    } else if (itemPrice > (financialContext.liquidBalance - 150)) {
+      verdict = "CAUTION";
+      confidenceScore = 55;
+      reason = `You can buy this, but it leaves you with less than a $150 emergency cushion for the rest of the month. Avoid if you have variable food/travel needs.`;
+    } else {
+      verdict = "YES";
+      confidenceScore = 92;
+      reason = `This item fits comfortably within your liquid balance. Your cash reserve remains solid at $${(financialContext.liquidBalance - itemPrice).toFixed(2)}.`;
+    }
+
+    const monthlySurplus = Math.max(50, financialContext.monthlyIncome - financialContext.totalSpentThisMonth);
+    const dailySavingsRate = monthlySurplus / 30;
+    delayDays = Math.round(itemPrice / dailySavingsRate);
+
+    let alternative = "Wait 48 hours before purchasing to evaluate if it is a genuine utility need or an impulse want.";
+    if (itemCategory === "Textbooks & Tuition") {
+      alternative = "Check if this textbook is available in the university library course reserves, rent from second-hand marketplaces (Chegg/AbeBooks), or request a PDF scan in campus groups.";
+    } else if (itemCategory === "Food & Dining") {
+      alternative = "Eat at the campus dining hall using remaining student meal swipes, or pool grocery ingredients with roommates to cook in bulk.";
+    }
+
+    return { verdict, confidenceScore, reason, delayDays, alternative };
+  };
+
+  if (!genAI) {
+    return getHeuristicResult();
+  }
+
+  try {
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      systemInstruction: AFFORDABILITY_CHECK_SYSTEM_PROMPT,
+    });
+
+    const prompt = `Proposed Purchase:
+Item Name: ${itemName}
+Price: $${itemPrice.toFixed(2)}
+Category: ${itemCategory}
+
+User Context:
+Remaining Cash Cushion: $${financialContext.liquidBalance.toFixed(2)}
+Monthly Income/Allowance: $${financialContext.monthlyIncome.toFixed(2)}
+Spent This Month So Far: $${financialContext.totalSpentThisMonth.toFixed(2)}
+Daily Burn Rate: $${financialContext.dailyBurnRate.toFixed(2)}/day
+Active Goals: ${financialContext.savingsGoals.map(g => `${g.name} (Target: $${g.target}, Current: $${g.current})`).join(", ")}
+
+Respond only with the requested JSON object.`;
+
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.text().trim();
+    
+    const cleanJson = responseText.replace(/```json/i, "").replace(/```/, "").trim();
+    const parsed = JSON.parse(cleanJson);
+    return {
+      verdict: parsed.verdict || "YES",
+      confidenceScore: typeof parsed.confidenceScore === "number" ? parsed.confidenceScore : 90,
+      reason: parsed.reason || "Fit within parameters.",
+      delayDays: typeof parsed.delayDays === "number" ? parsed.delayDays : 0,
+      alternative: parsed.alternative || "Wait 48 hours before purchasing."
+    };
+  } catch (error) {
+    console.warn("Gemini askAffordability failed, using heuristics:", error);
+    return getHeuristicResult();
+  }
+}
+
+/**
+ * AI-backed loan advisory and accelerated payoff explainer.
+ */
+export async function askLoanCoaching(params: {
+  loanName: string;
+  principal: number;
+  interestRate: number;
+  termMonths: number;
+  extraPayment: number;
+  standardMetrics: {
+    monthlyPayment: number;
+    totalInterest: number;
+    monthsToPay: number;
+  };
+  acceleratedMetrics: {
+    monthlyPayment: number;
+    totalInterest: number;
+    monthsToPay: number;
+    monthsSaved: number;
+    interestSaved: number;
+  };
+}): Promise<string> {
+  const { loanName, principal, interestRate, termMonths, extraPayment, standardMetrics, acceleratedMetrics } = params;
+
+  const getHeuristicResponse = () => {
+    return `Loan Details: ${loanName}
+- Standard monthly repayment: $${standardMetrics.monthlyPayment.toFixed(2)} over ${termMonths} months.
+- Compound interest accrues continuously. Total interest is $${standardMetrics.totalInterest.toFixed(2)}.
+- By adding $${extraPayment.toFixed(2)} extra monthly payments, you shorten your tenure to ${acceleratedMetrics.monthsToPay} months (saving ${acceleratedMetrics.monthsSaved} months).
+- You save a total of $${acceleratedMetrics.interestSaved.toFixed(2)} in compound interest charges!`;
+  };
+
+  if (!genAI) {
+    return getHeuristicResponse();
+  }
+
+  try {
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      systemInstruction: LOAN_COACH_SYSTEM_PROMPT,
+    });
+
+    const prompt = `Loan Details:
+Name: ${loanName}
+Principal Amount: $${principal.toFixed(2)}
+Interest Rate: ${interestRate.toFixed(2)}%
+Repayment Term: ${termMonths} months
+Proposed Extra Monthly Contribution: $${extraPayment.toFixed(2)}/month
+
+Standard Payoff:
+- Monthly Payment: $${standardMetrics.monthlyPayment.toFixed(2)}
+- Total Interest Paid: $${standardMetrics.totalInterest.toFixed(2)}
+- Total Tenure: ${standardMetrics.monthsToPay} months
+
+Accelerated Payoff:
+- Monthly Payment: $${acceleratedMetrics.monthlyPayment.toFixed(2)}
+- Total Interest Paid: $${acceleratedMetrics.totalInterest.toFixed(2)}
+- Total Tenure: ${acceleratedMetrics.monthsToPay} months
+- Repayment Months Saved: ${acceleratedMetrics.monthsSaved} months
+- Interest Cost Saved: $${acceleratedMetrics.interestSaved.toFixed(2)}
+
+Please explain this amortization and payoff plan in plain, encouraging language.`;
+
+    const result = await model.generateContent(prompt);
+    return result.response.text().trim() || getHeuristicResponse();
+  } catch (error) {
+    console.warn("Gemini askLoanCoaching failed, using heuristics:", error);
     return getHeuristicResponse();
   }
 }

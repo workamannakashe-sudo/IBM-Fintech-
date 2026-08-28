@@ -1,11 +1,12 @@
 // FinWise Impulse Purchase Affordability Simulator (Affordability.tsx)
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import { useFinancial } from "../context/FinancialContext";
 import { 
   ShieldCheck, ShieldAlert, HelpCircle, 
   Landmark, ShoppingBag, Lightbulb 
 } from "lucide-react";
 import { motion } from "motion/react";
+import { askAffordability } from "../services/gemini";
 
 export const Affordability: React.FC = () => {
   const { profile, totalSpentThisMonth, goals } = useFinancial();
@@ -15,69 +16,51 @@ export const Affordability: React.FC = () => {
   const [itemPrice, setItemPrice] = useState("");
   const [itemCategory, setItemCategory] = useState("Shopping & Personal");
   const [hasSimulated, setHasSimulated] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [aiResult, setAiResult] = useState<{
+    verdict: "YES" | "CAUTION" | "NO";
+    confidenceScore: number;
+    reason: string;
+    delayDays: number;
+    alternative: string;
+  } | null>(null);
 
   // Constants
   const liquidBalance = profile.monthlyAllowance - totalSpentThisMonth;
   const activeGoal = goals[0]; // Primary target goal for delay comparison
 
-  // Affordability Logic Calculations
-  const simulationResult = useMemo(() => {
+  const handleSimulate = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     const price = parseFloat(itemPrice);
-    if (isNaN(price) || price <= 0) return null;
+    if (!itemName.trim() || isNaN(price) || price <= 0) return;
 
-    let verdict: "YES" | "CAUTION" | "NO" = "YES";
-    let confidenceScore = 100;
-    let reason = "";
-    let delayDays = 0;
-
-    // 1. Evaluate Verdict
-    if (price > liquidBalance) {
-      verdict = "NO";
-      confidenceScore = 15;
-      reason = `This purchase ($${price.toFixed(2)}) exceeds your entire remaining cash cushion ($${liquidBalance.toFixed(2)}) for the month. Buying this will trigger an overdraft.`;
-    } else if (price > (liquidBalance - 150)) {
-      verdict = "CAUTION";
-      confidenceScore = 55;
-      reason = `You can buy this, but it leaves you with less than a $150 emergency cushion for the rest of the month. Avoid if you have variable food/travel needs.`;
-    } else {
-      verdict = "YES";
-      confidenceScore = 92;
-      reason = `This item fits comfortably within your liquid balance. Your cash reserve remains solid at $${(liquidBalance - price).toFixed(2)}.`;
-    }
-
-    // 2. Opportunity Cost Delay Calculation
-    // Daily savings rate = (Monthly allowance - monthly expenses) / 30
-    const monthlySurplus = Math.max(50, profile.monthlyAllowance - totalSpentThisMonth);
-    const dailySavingsRate = monthlySurplus / 30;
-    delayDays = Math.round(price / dailySavingsRate);
-
-    // 3. Smart Student Alternatives Heuristics
-    let alternative = "Wait 48 hours before purchasing to evaluate if it is a genuine utility need or an impulse want.";
-    if (itemCategory === "Textbooks & Tuition") {
-      alternative = "Check if this textbook is available in the university library course reserves, rent from second-hand marketplaces (Chegg/AbeBooks), or request a PDF scan in campus groups.";
-    } else if (itemCategory === "Food & Dining") {
-      alternative = "Eat at the campus dining hall using remaining student meal swipes, or pool grocery ingredients with roommates to cook in bulk.";
-    } else if (itemCategory === "Entertainment & Subscriptions") {
-      alternative = "Verify student discounts (Spotify Student, Apple Music student plan, UNiDAYS), borrow university VR/media labs, or seek free campus movie nights.";
-    } else if (itemCategory === "Transportation") {
-      alternative = "Use the free university campus shuttle lines, purchase a bulk student transit card pass, or look for local campus carpool chats.";
-    } else if (itemCategory === "Shopping & Personal") {
-      alternative = "Search online student marketplace directories for second-hand deals, use promo codes, or wait for seasonal clearance sales.";
-    }
-
-    return {
-      verdict,
-      confidenceScore,
-      reason,
-      delayDays,
-      alternative,
-    };
-  }, [itemPrice, itemCategory, liquidBalance, profile, totalSpentThisMonth]);
-
-  const handleSimulate = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!itemName.trim() || !itemPrice) return;
+    setIsLoading(true);
+    setError(null);
     setHasSimulated(true);
+
+    try {
+      const res = await askAffordability({
+        itemName,
+        itemPrice: price,
+        itemCategory,
+        financialContext: {
+          liquidBalance,
+          monthlyIncome: profile.monthlyAllowance,
+          totalSpentThisMonth,
+          dailyBurnRate: (profile.monthlyAllowance - totalSpentThisMonth) > 0 
+            ? (profile.monthlyAllowance - totalSpentThisMonth) / 30 
+            : 0,
+          savingsGoals: goals.map(g => ({ name: g.name, target: g.target, current: g.current }))
+        }
+      });
+      setAiResult(res);
+    } catch (err: any) {
+      console.error("Affordability check failed:", err);
+      setError("AI Affordability Check was unable to contact the advisor service. Please check your API key configuration or try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -166,10 +149,10 @@ export const Affordability: React.FC = () => {
 
               <button
                 type="submit"
-                disabled={!itemName.trim() || !itemPrice}
-                className="w-full rounded-xl bg-brand-teal hover:bg-brand-teal-light text-white py-3.5 text-xs font-bold shadow-md shadow-teal-700/10 transition-all"
+                disabled={!itemName.trim() || !itemPrice || isLoading}
+                className="w-full rounded-xl bg-brand-teal hover:bg-brand-teal-light text-white py-3.5 text-xs font-bold shadow-md shadow-teal-700/10 transition-all flex items-center justify-center"
               >
-                Run Affordability Check
+                {isLoading ? "Running AI Evaluation..." : "Run Affordability Check"}
               </button>
             </form>
           </div>
@@ -177,7 +160,29 @@ export const Affordability: React.FC = () => {
 
         {/* RIGHT COLUMN: Output Simulation Analysis */}
         <div className="space-y-6">
-          {!hasSimulated || !simulationResult ? (
+          {isLoading ? (
+            <div className="rounded-2xl border-2 border-dashed border-teal-200 bg-white p-12 text-center flex flex-col items-center justify-center h-full min-h-[300px]">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-brand-teal mb-4" />
+              <h4 className="text-sm font-bold text-slate-700">Analyzing Affordability...</h4>
+              <p className="text-xs text-slate-400 mt-1 max-w-[70%] mx-auto">
+                Our AI Advisor is reviewing your cushion cash, budgets, active savings targets, and monthly net savings rate.
+              </p>
+            </div>
+          ) : error ? (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center flex flex-col items-center justify-center h-full min-h-[300px]">
+              <ShieldAlert className="h-8 w-8 text-rose-500 mb-2" />
+              <h4 className="text-sm font-bold text-rose-800">Affordability Check Error</h4>
+              <p className="text-xs text-rose-700 mt-1 max-w-[80%] mx-auto mb-4">
+                {error}
+              </p>
+              <button
+                onClick={() => handleSimulate()}
+                className="rounded-xl bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 text-xs font-bold transition-all"
+              >
+                Retry Request
+              </button>
+            </div>
+          ) : !hasSimulated || !aiResult ? (
             <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-white p-12 text-center flex flex-col items-center justify-center h-full min-h-[300px]">
               <HelpCircle className="h-10 w-10 text-slate-300 mb-2" />
               <h4 className="text-sm font-bold text-slate-700">Awaiting Simulator Metrics</h4>
@@ -194,31 +199,31 @@ export const Affordability: React.FC = () => {
               {/* Verdict Card */}
               <div 
                 className={`rounded-2xl border p-6 shadow-sm ${
-                  simulationResult.verdict === "YES"
+                  aiResult.verdict === "YES"
                     ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-                    : simulationResult.verdict === "CAUTION"
+                    : aiResult.verdict === "CAUTION"
                     ? "bg-orange-50 border-orange-200 text-orange-800"
                     : "bg-rose-50 border-rose-200 text-rose-800"
                 }`}
               >
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    {simulationResult.verdict === "NO" ? (
+                    {aiResult.verdict === "NO" ? (
                       <ShieldAlert className="h-6 w-6 text-rose-500" />
                     ) : (
-                      <ShieldCheck className={`h-6 w-6 ${simulationResult.verdict === "YES" ? "text-emerald-500" : "text-orange-500"}`} />
+                      <ShieldCheck className={`h-6 w-6 ${aiResult.verdict === "YES" ? "text-emerald-500" : "text-orange-500"}`} />
                     )}
                     <h3 className="font-display text-lg font-bold">
-                      VERDICT: {simulationResult.verdict}
+                      VERDICT: {aiResult.verdict}
                     </h3>
                   </div>
                   <span className="text-xs font-bold uppercase tracking-wider">
-                    Score: {simulationResult.confidenceScore}/100
+                    Score: {aiResult.confidenceScore}/100
                   </span>
                 </div>
                 
                 <p className="text-xs leading-relaxed font-semibold">
-                  {simulationResult.reason}
+                  {aiResult.reason}
                 </p>
               </div>
 
@@ -231,11 +236,11 @@ export const Affordability: React.FC = () => {
                   </h3>
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-orange-600 font-bold text-sm">
-                      +{simulationResult.delayDays}d
+                      +{aiResult.delayDays}d
                     </div>
                     <div>
                       <p className="text-xs text-slate-800 font-semibold leading-relaxed">
-                        Purchasing this delays your primary savings goal <span className="font-bold">"{activeGoal.name}"</span> by approximately <span className="text-orange-600 font-bold">{simulationResult.delayDays} days</span>.
+                        Purchasing this delays your primary savings goal <span className="font-bold">"{activeGoal.name}"</span> by approximately <span className="text-orange-600 font-bold">{aiResult.delayDays} days</span>.
                       </p>
                       <p className="text-[10px] text-slate-400 mt-0.5">Based on current daily net saving velocity.</p>
                     </div>
@@ -250,7 +255,7 @@ export const Affordability: React.FC = () => {
                   Smart Student Alternative
                 </h3>
                 <p className="text-xs text-amber-950 leading-relaxed font-medium">
-                  {simulationResult.alternative}
+                  {aiResult.alternative}
                 </p>
               </div>
 

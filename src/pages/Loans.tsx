@@ -3,14 +3,16 @@ import React, { useState, useMemo, useEffect } from "react";
 import { useFinancial } from "../context/FinancialContext";
 import { simulateAcceleratedPayoff } from "../utils/finance";
 import { 
-  Percent, Sparkles, TrendingDown, BookOpen 
+  Percent, Sparkles, TrendingDown, BookOpen, BrainCircuit 
 } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { askLoanCoaching } from "../services/gemini";
 
 export const Loans: React.FC = () => {
   const { loans, updateLoanExtraPayment, currency } = useFinancial();
 
   const targetLoan = loans[0] || {
+    name: "Student Education Loan",
     principal: currency === "INR" ? 450000 : 8500,
     interestRate: currency === "INR" ? 8.15 : 5.5,
     termMonths: 120,
@@ -22,12 +24,18 @@ export const Loans: React.FC = () => {
   const [rate, setRate] = useState(targetLoan.interestRate);
   const [term, setTerm] = useState(targetLoan.termMonths);
   const [extraPayment, setExtraPayment] = useState(targetLoan.extraPayment);
+
+  // AI Coaching States
+  const [coachingText, setCoachingText] = useState<string | null>(null);
+  const [isLoadingCoaching, setIsLoadingCoaching] = useState(false);
+  const [coachingError, setCoachingError] = useState<string | null>(null);
   
   useEffect(() => {
     setPrincipal(targetLoan.principal);
     setRate(targetLoan.interestRate);
     setTerm(targetLoan.termMonths);
     setExtraPayment(targetLoan.extraPayment);
+    setCoachingText(null); // Reset explanation if inputs change
   }, [currency, loans]);
 
   const [selectedTerm, setSelectedTerm] = useState<string | null>(null);
@@ -39,8 +47,41 @@ export const Loans: React.FC = () => {
 
   const handleSliderChange = (val: number) => {
     setExtraPayment(val);
+    setCoachingText(null); // Reset explanation on slider modifications
     if (loans[0]) {
       updateLoanExtraPayment(loans[0].id, val);
+    }
+  };
+
+  const handleRequestCoaching = async () => {
+    setIsLoadingCoaching(true);
+    setCoachingError(null);
+    try {
+      const res = await askLoanCoaching({
+        loanName: loans[0]?.name || "Student Loan",
+        principal,
+        interestRate: rate,
+        termMonths: term,
+        extraPayment,
+        standardMetrics: {
+          monthlyPayment: standard.monthlyPayment,
+          totalInterest: standard.totalInterest,
+          monthsToPay: standard.monthsToPay
+        },
+        acceleratedMetrics: {
+          monthlyPayment: standard.monthlyPayment + extraPayment,
+          totalInterest: accelerated.totalInterest,
+          monthsToPay: accelerated.monthsToPay,
+          monthsSaved,
+          interestSaved
+        }
+      });
+      setCoachingText(res);
+    } catch (err) {
+      console.error("Loan coaching failed:", err);
+      setCoachingError("Unable to retrieve dynamic loan payoff analysis. Check your settings.");
+    } finally {
+      setIsLoadingCoaching(false);
     }
   };
 
@@ -311,6 +352,47 @@ export const Loans: React.FC = () => {
               </div>
             </div>
           )}
+
+          {/* AI Loan Payoff Explainer Tool */}
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+                  <BrainCircuit className="h-4.5 w-4.5 text-brand-teal animate-pulse" />
+                  AI Payoff Explainer
+                </h4>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Let Bob explain how compound interest and monthly accelerations affect your specific numbers.
+                </p>
+              </div>
+              <button
+                onClick={handleRequestCoaching}
+                disabled={isLoadingCoaching}
+                className="rounded-xl bg-brand-teal hover:bg-brand-teal-light text-white text-xs font-bold px-4 py-2 shadow-sm transition-colors cursor-pointer select-none shrink-0"
+              >
+                {isLoadingCoaching ? "Bob is Analyzing..." : "Explain payoff with AI"}
+              </button>
+            </div>
+
+            {isLoadingCoaching && (
+              <div className="rounded-xl bg-slate-50 border border-slate-100 p-4 flex items-center justify-center gap-2">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-brand-teal" />
+                <span className="text-xs text-slate-500 font-medium">Analyzing loan structure...</span>
+              </div>
+            )}
+
+            {coachingError && (
+              <div className="rounded-xl bg-rose-50 border border-rose-100 p-3 text-xs text-rose-700 font-medium">
+                {coachingError}
+              </div>
+            )}
+
+            {coachingText && (
+              <div className="rounded-xl bg-teal-50/30 border border-teal-100/50 p-4 text-xs text-slate-700 leading-relaxed font-medium whitespace-pre-line animate-in fade-in slide-in-from-top-1 duration-200 font-sans">
+                {coachingText}
+              </div>
+            )}
+          </div>
 
           {/* Line Chart comparing paths */}
           <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
