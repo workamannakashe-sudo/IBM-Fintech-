@@ -471,7 +471,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (createErr) throw createErr;
         profileData = newProfile;
 
-        // Initialize empty budgets in Supabase for this user
+        // Initialize budgets in Supabase for this user
         const seedBudgets = budgets;
         await supabase.from("budgets").insert(
           Object.entries(seedBudgets).map(([category, limit_amount]) => ({
@@ -480,6 +480,62 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             limit_amount
           }))
         );
+
+        // AUTO-SEED DEMO DATA FOR RECRUITERS/JUDGES IF DEMO EMAIL
+        if (email.endsWith("@finwise.com")) {
+          const rawTSeed = getTransactionsSeed(currency, userType);
+          const now = new Date();
+          const year = now.getFullYear();
+          const month = now.getMonth() + 1;
+          const monthStr = month < 10 ? `0${month}` : `${month}`;
+          const currentDay = now.getDate();
+          
+          const tSeed = rawTSeed.map(t => {
+            const dayMatch = t.date.match(/-(\d{2})$/);
+            const dayNum = dayMatch ? parseInt(dayMatch[1]) : 1;
+            const targetDayNum = Math.min(dayNum, currentDay);
+            const dayStr = targetDayNum < 10 ? `0${targetDayNum}` : `${targetDayNum}`;
+            return { ...t, date: `${year}-${monthStr}-${dayStr}` };
+          });
+
+          const gSeed = getGoalsSeed(currency);
+          const lSeed = getLoansSeed(currency, userType);
+          const bSeed = getBudgetsSeed(currency, userType);
+
+          // Upload seeds to Supabase
+          await Promise.all([
+            supabase.from("transactions").insert(tSeed.map(t => ({
+              profile_id: profileData.id,
+              date: t.date,
+              description: t.description,
+              amount: t.amount,
+              category: t.category,
+              is_anomaly: t.isAnomaly,
+              anomaly_explanation: t.anomalyExplanation
+            }))),
+            supabase.from("savings_goals").insert(gSeed.map(g => ({
+              profile_id: profileData.id,
+              name: g.name,
+              target: g.target,
+              current: g.current
+            }))),
+            supabase.from("loans").insert(lSeed.map(l => ({
+              profile_id: profileData.id,
+              name: l.name,
+              principal: l.principal,
+              interest_rate: l.interestRate,
+              term_months: l.termMonths,
+              extra_payment: l.extraPayment,
+              type: l.type
+            }))),
+            // Update budgets seed
+            supabase.from("budgets").upsert(Object.entries(bSeed).map(([category, limit_amount]) => ({
+              profile_id: profileData.id,
+              category,
+              limit_amount
+            })), { onConflict: "profile_id,category" })
+          ]);
+        }
       }
 
       // Store dbProfileId
