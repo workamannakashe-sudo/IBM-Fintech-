@@ -34,6 +34,25 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
   const [showScriptCode, setShowScriptCode] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  const [dbUrl, setDbUrl] = useState(() => localStorage.getItem("fw_supabase_url") || "");
+  const [dbKey, setDbKey] = useState(() => localStorage.getItem("fw_supabase_anon_key") || "");
+  const [geminiKey, setGeminiKey] = useState(() => localStorage.getItem("fw_gemini_api_key") || "");
+
+  const handleDbUrlChange = (val: string) => {
+    setDbUrl(val);
+    localStorage.setItem("fw_supabase_url", val);
+  };
+
+  const handleDbKeyChange = (val: string) => {
+    setDbKey(val);
+    localStorage.setItem("fw_supabase_anon_key", val);
+  };
+
+  const handleGeminiKeyChange = (val: string) => {
+    setGeminiKey(val);
+    localStorage.setItem("fw_gemini_api_key", val);
+  };
+
   const tabs = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "expenses", label: "Expenses", icon: ReceiptText },
@@ -176,7 +195,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
                 {/* Supabase Status Integration */}
                 <div className="space-y-2 pt-2 border-t border-slate-100">
                   <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    Supabase Realtime Sync
+                    Supabase Integration
                   </h4>
                   <div className="flex items-center justify-between bg-slate-50 border border-slate-200/60 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700">
                     <span className="flex items-center gap-1.5">
@@ -193,6 +212,45 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
                     <span className="text-[10px] font-bold text-slate-400 capitalize">
                       {supabaseStatus}
                     </span>
+                  </div>
+
+                  {/* Supabase Project URL & Anon Key */}
+                  <div className="space-y-1.5 pt-1">
+                    <label className="block text-[9px] text-slate-500 font-bold uppercase tracking-wider">Supabase URL</label>
+                    <input
+                      type="text"
+                      placeholder="https://your-project.supabase.co"
+                      value={dbUrl}
+                      onChange={(e) => handleDbUrlChange(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs focus:outline-none focus:border-brand-teal bg-slate-50 font-sans"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-[9px] text-slate-500 font-bold uppercase tracking-wider">Supabase Public Anon Key</label>
+                    <input
+                      type="password"
+                      placeholder="eyJhbGciOiJIUzI1NiIsInR5c..."
+                      value={dbKey}
+                      onChange={(e) => handleDbKeyChange(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs focus:outline-none focus:border-brand-teal bg-slate-50 font-sans"
+                    />
+                  </div>
+                </div>
+
+                {/* Gemini AI Integration */}
+                <div className="space-y-2 pt-2 border-t border-slate-100">
+                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Gemini AI Integration
+                  </h4>
+                  <div className="space-y-1.5">
+                    <label className="block text-[9px] text-slate-500 font-bold uppercase tracking-wider">Gemini API Key</label>
+                    <input
+                      type="password"
+                      placeholder="AIzaSy..."
+                      value={geminiKey}
+                      onChange={(e) => handleGeminiKeyChange(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs focus:outline-none focus:border-brand-teal bg-slate-50 font-sans"
+                    />
                   </div>
                 </div>
 

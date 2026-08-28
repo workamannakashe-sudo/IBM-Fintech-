@@ -2,7 +2,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Read API Key from environment variables (configured via .env)
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY || localStorage.getItem("fw_gemini_api_key") || "";
 let genAI: GoogleGenerativeAI | null = null;
 
 if (apiKey && apiKey !== "YOUR_GEMINI_API_KEY_HERE") {
