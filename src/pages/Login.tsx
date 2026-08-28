@@ -14,9 +14,15 @@ export const Login: React.FC = () => {
   const [name, setName] = useState("");
   const [role, setRole] = useState<"Student" | "Professional">("Student");
   const [currency, setCurrency] = useState<"USD" | "INR">("INR");
+  const [allowance, setAllowance] = useState<number>(10000);
   
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const handleRoleChange = (newRole: "Student" | "Professional") => {
+    setRole(newRole);
+    setAllowance(newRole === "Student" ? 10000 : 50000);
+  };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +36,7 @@ export const Login: React.FC = () => {
     }
     setError("");
     setLoading(true);
-    const res = await login(email, password, role, currency);
+    const res = await login(email, password, role, currency, allowance);
     setLoading(false);
     if (!res.success) {
       setError(res.error || "Login failed");
@@ -51,9 +57,13 @@ export const Login: React.FC = () => {
       setError("Please enter your name");
       return;
     }
+    if (allowance < 0) {
+      setError("Please enter a valid monthly allowance or income");
+      return;
+    }
     setError("");
     setLoading(true);
-    const res = await registerUser(email, password, name, role, currency);
+    const res = await registerUser(email, password, name, role, currency, allowance);
     setLoading(false);
     if (!res.success) {
       setError(res.error || "Registration failed");
@@ -62,7 +72,11 @@ export const Login: React.FC = () => {
 
   const handleGuestSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    loginAsGuest(role, currency);
+    if (allowance < 0) {
+      setError("Please enter a valid monthly allowance or income");
+      return;
+    }
+    loginAsGuest(role, currency, allowance);
   };
 
   const handleQuickFill = async (type: "student_inr" | "pro_usd") => {
@@ -70,16 +84,17 @@ export const Login: React.FC = () => {
     const defaultName = type === "student_inr" ? "Aman Kashe" : "Sarah Jenkins";
     const defaultRole = type === "student_inr" ? "Student" : "Professional";
     const defaultCurr = type === "student_inr" ? "INR" : "USD";
+    const defaultAllowance = type === "student_inr" ? 15000 : 45000;
     const defaultPass = "password123";
 
     setLoading(true);
     setError("");
     
     // Attempt sign in
-    let res = await login(defaultEmail, defaultPass, defaultRole, defaultCurr);
+    let res = await login(defaultEmail, defaultPass, defaultRole, defaultCurr, defaultAllowance);
     if (!res.success) {
       // If user doesn't exist yet in Supabase, register them automatically
-      res = await registerUser(defaultEmail, defaultPass, defaultName, defaultRole, defaultCurr);
+      res = await registerUser(defaultEmail, defaultPass, defaultName, defaultRole, defaultCurr, defaultAllowance);
     }
     
     setLoading(false);
@@ -212,7 +227,7 @@ export const Login: React.FC = () => {
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Segment (Offline Only)</label>
                   <select
                     value={role}
-                    onChange={(e) => setRole(e.target.value as any)}
+                    onChange={(e) => handleRoleChange(e.target.value as any)}
                     disabled={loading}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer font-sans"
                   >
@@ -234,6 +249,21 @@ export const Login: React.FC = () => {
                   </select>
                 </div>
               </div>
+
+              {/* Monthly Allowance (Offline Only) */}
+              {!supabaseConnected && (
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Monthly Allowance / Income</label>
+                  <input
+                    type="number"
+                    value={allowance}
+                    onChange={(e) => setAllowance(Number(e.target.value))}
+                    disabled={loading}
+                    required
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:border-indigo-500 transition-colors font-sans"
+                  />
+                </div>
+              )}
 
               <button
                 type="submit"
@@ -338,7 +368,7 @@ export const Login: React.FC = () => {
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">User Segment</label>
                   <select
                     value={role}
-                    onChange={(e) => setRole(e.target.value as any)}
+                    onChange={(e) => handleRoleChange(e.target.value as any)}
                     disabled={loading}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer font-sans"
                   >
@@ -359,6 +389,19 @@ export const Login: React.FC = () => {
                     <option value="USD">USD ($)</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Monthly Allowance */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Monthly Allowance / Income</label>
+                <input
+                  type="number"
+                  value={allowance}
+                  onChange={(e) => setAllowance(Number(e.target.value))}
+                  disabled={loading}
+                  required
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:border-indigo-500 transition-colors font-sans"
+                />
               </div>
 
               <button
@@ -388,7 +431,7 @@ export const Login: React.FC = () => {
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Role Setting</label>
                   <select
                     value={role}
-                    onChange={(e) => setRole(e.target.value as any)}
+                    onChange={(e) => handleRoleChange(e.target.value as any)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer font-sans"
                   >
                     <option value="Student">Student Mode</option>
@@ -407,6 +450,18 @@ export const Login: React.FC = () => {
                     <option value="USD">USD ($)</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Guest Monthly Allowance */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Monthly Allowance / Income</label>
+                <input
+                  type="number"
+                  value={allowance}
+                  onChange={(e) => setAllowance(Number(e.target.value))}
+                  required
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-white focus:outline-none focus:border-indigo-500 transition-colors font-sans"
+                />
               </div>
 
               <button

@@ -78,9 +78,9 @@ interface FinancialContextType {
   deleteSavingsGoal: (id: string) => void;
   updateLoanExtraPayment: (id: string, extraPayment: number) => void;
   resetDemoData: () => void;
-  login: (email: string, password: string, userType: "Student" | "Professional", currency: "USD" | "INR") => Promise<{ success: boolean; error?: string }>;
-  registerUser: (email: string, password: string, name: string, userType: "Student" | "Professional", currency: "USD" | "INR") => Promise<{ success: boolean; error?: string }>;
-  loginAsGuest: (userType: "Student" | "Professional", currency: "USD" | "INR") => void;
+  login: (email: string, password: string, userType: "Student" | "Professional", currency: "USD" | "INR", monthlyAllowance?: number) => Promise<{ success: boolean; error?: string }>;
+  registerUser: (email: string, password: string, name: string, userType: "Student" | "Professional", currency: "USD" | "INR", monthlyAllowance?: number) => Promise<{ success: boolean; error?: string }>;
+  loginAsGuest: (userType: "Student" | "Professional", currency: "USD" | "INR", monthlyAllowance?: number) => void;
   logout: () => void;
 }
 
@@ -1087,8 +1087,10 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     email: string,
     password: string,
     type: "Student" | "Professional",
-    curr: "USD" | "INR"
+    curr: "USD" | "INR",
+    allowance?: number
   ): Promise<{ success: boolean; error?: string }> => {
+    const finalAllowance = allowance !== undefined ? allowance : (type === "Student" ? 10000 : 50000);
     if (isSupabaseConfigured()) {
       try {
         const { error } = await supabase.auth.signInWithPassword({
@@ -1127,7 +1129,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         incomeTier: "Local Account",
         firstGen: false,
         interests: [],
-        monthlyAllowance: type === "Student" ? 10000 : 50000
+        monthlyAllowance: finalAllowance
       };
       setProfile(localProfile);
       localStorage.setItem("fw_profile", JSON.stringify(localProfile));
@@ -1145,8 +1147,10 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     password: string,
     name: string,
     type: "Student" | "Professional",
-    curr: "USD" | "INR"
+    curr: "USD" | "INR",
+    allowance?: number
   ): Promise<{ success: boolean; error?: string }> => {
+    const finalAllowance = allowance !== undefined ? allowance : (type === "Student" ? 10000 : 50000);
     if (isSupabaseConfigured()) {
       try {
         const { data, error } = await supabase.auth.signUp({
@@ -1167,7 +1171,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           income_tier: "Income Tier 1",
           first_gen: false,
           interests: [],
-          monthly_allowance: type === "Student" ? 10000 : 50000
+          monthly_allowance: finalAllowance
         });
 
         if (profileErr) {
@@ -1187,11 +1191,12 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return { success: false, error: err.message || "Registration failed" };
       }
     } else {
-      return login(email, password, type, curr);
+      return login(email, password, type, curr, finalAllowance);
     }
   };
 
-  const loginAsGuest = (type: "Student" | "Professional", curr: "USD" | "INR") => {
+  const loginAsGuest = (type: "Student" | "Professional", curr: "USD" | "INR", allowance?: number) => {
+    const finalAllowance = allowance !== undefined ? allowance : (type === "Student" ? 10000 : 50000);
     setIsAuthenticated(true);
     setIsGuest(true);
     localStorage.setItem("fw_authenticated", "true");
@@ -1208,7 +1213,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       incomeTier: "Guest Mode",
       firstGen: false,
       interests: [],
-      monthlyAllowance: type === "Student" ? 10000 : 50000
+      monthlyAllowance: finalAllowance
     };
     setProfile(guestProfile);
     localStorage.setItem("fw_profile", JSON.stringify(guestProfile));
@@ -1241,6 +1246,9 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setGoals([]);
     setLoans([]);
     setBudgets(DEFAULT_BUDGETS_EMPTY);
+
+    // Refresh page to clean context state and transition back cleanly
+    window.location.reload();
   };
 
   return (
