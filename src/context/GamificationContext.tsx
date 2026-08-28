@@ -37,7 +37,7 @@ const GamificationContext = createContext<GamificationContextType | undefined>(u
 export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [xp, setXp] = useState<number>(() => {
     const val = localStorage.getItem("fw_xp");
-    return val ? parseInt(val) : 120; // Default seed XP
+    return val ? parseInt(val) : 0; // Clean default XP
   });
 
   const [level, setLevel] = useState<number>(() => {
@@ -47,21 +47,16 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const [streak, setStreak] = useState<number>(() => {
     const val = localStorage.getItem("fw_streak");
-    return val ? parseInt(val) : 4; // Seed 4-day streak
+    return val ? parseInt(val) : 0; // Clean default streak
   });
 
   const [badges, setBadges] = useState<Badge[]>(() => {
     try {
       const val = localStorage.getItem("fw_badges_list");
-      // Seed 1 unlocked badge ("Budget Rookie")
-      return val ? JSON.parse(val) : [
-        { ...ALL_BADGES[0], unlockedAt: "2026-08-20" }
-      ];
+      return val ? JSON.parse(val) : []; // Clean default badges
     } catch (e) {
       console.warn("Failed to parse fw_badges_list from localStorage, falling back to seed data", e);
-      return [
-        { ...ALL_BADGES[0], unlockedAt: "2026-08-20" }
-      ];
+      return [];
     }
   });
 
@@ -69,18 +64,10 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [loggingHistory, setLoggingHistory] = useState<string[]>(() => {
     try {
       const val = localStorage.getItem("fw_log_history");
-      return val ? JSON.parse(val) : [
-        "2026-08-01", "2026-08-05", "2026-08-08", "2026-08-10", 
-        "2026-08-12", "2026-08-15", "2026-08-18", "2026-08-20", 
-        "2026-08-22", "2026-08-24"
-      ];
+      return val ? JSON.parse(val) : []; // Clean default history
     } catch (e) {
       console.warn("Failed to parse fw_log_history from localStorage, falling back to seed data", e);
-      return [
-        "2026-08-01", "2026-08-05", "2026-08-08", "2026-08-10", 
-        "2026-08-12", "2026-08-15", "2026-08-18", "2026-08-20", 
-        "2026-08-22", "2026-08-24"
-      ];
+      return [];
     }
   });
 

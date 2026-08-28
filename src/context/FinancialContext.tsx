@@ -78,12 +78,36 @@ interface FinancialContextType {
   deleteSavingsGoal: (id: string) => void;
   updateLoanExtraPayment: (id: string, extraPayment: number) => void;
   resetDemoData: () => void;
-  login: (username: string, userType: "Student" | "Professional", currency: "USD" | "INR") => void;
+  login: (email: string, password: string, userType: "Student" | "Professional", currency: "USD" | "INR") => Promise<{ success: boolean; error?: string }>;
+  registerUser: (email: string, password: string, name: string, userType: "Student" | "Professional", currency: "USD" | "INR") => Promise<{ success: boolean; error?: string }>;
   loginAsGuest: (userType: "Student" | "Professional", currency: "USD" | "INR") => void;
   logout: () => void;
 }
 
 const FinancialContext = createContext<FinancialContextType | undefined>(undefined);
+
+// Empty Default Data
+const DEFAULT_PROFILE_EMPTY: StudentProfile = {
+  name: "",
+  major: "",
+  gpa: 0,
+  academicYear: "",
+  incomeTier: "",
+  firstGen: false,
+  interests: [],
+  monthlyAllowance: 0,
+};
+
+const DEFAULT_BUDGETS_EMPTY: Record<string, number> = {
+  "Housing & Rent": 0,
+  "Food & Dining": 0,
+  "Textbooks & Tuition": 0,
+  "Entertainment & Subscriptions": 0,
+  "Transportation": 0,
+  "Health & Wellness": 0,
+  "Shopping & Personal": 0,
+  "Miscellaneous": 0,
+};
 
 // USD Default Seed Data
 const DEFAULT_PROFILE_USD_STUDENT: StudentProfile = {
@@ -340,53 +364,65 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   // State Declarations
+  const [dbProfileId, setDbProfileId] = useState<string | null>(() => {
+    return localStorage.getItem("fw_db_profile_id") || null;
+  });
+
+  useEffect(() => {
+    if (dbProfileId) {
+      localStorage.setItem("fw_db_profile_id", dbProfileId);
+    } else {
+      localStorage.removeItem("fw_db_profile_id");
+    }
+  }, [dbProfileId]);
+
   const [profile, setProfile] = useState<StudentProfile>(() => {
     try {
       const data = localStorage.getItem("fw_profile");
-      return data ? JSON.parse(data) : getProfileSeed(currency, userType);
+      return data ? JSON.parse(data) : DEFAULT_PROFILE_EMPTY;
     } catch (e) {
-      console.warn("Failed to parse fw_profile from localStorage, falling back to seed data", e);
-      return getProfileSeed(currency, userType);
+      console.warn("Failed to parse fw_profile from localStorage, falling back to clean data", e);
+      return DEFAULT_PROFILE_EMPTY;
     }
   });
 
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     try {
       const data = localStorage.getItem("fw_transactions");
-      return data ? JSON.parse(data) : getTransactionsSeed(currency, userType);
+      return data ? JSON.parse(data) : [];
     } catch (e) {
-      console.warn("Failed to parse fw_transactions from localStorage, falling back to seed data", e);
-      return getTransactionsSeed(currency, userType);
+      console.warn("Failed to parse fw_transactions from localStorage, falling back to clean data", e);
+      return [];
     }
   });
 
   const [goals, setGoals] = useState<SavingsGoal[]>(() => {
     try {
       const data = localStorage.getItem("fw_goals");
-      return data ? JSON.parse(data) : getGoalsSeed(currency);
+      return data ? JSON.parse(data) : [];
     } catch (e) {
-      console.warn("Failed to parse fw_goals from localStorage, falling back to seed data", e);
-      return getGoalsSeed(currency);
+      console.warn("Failed to parse fw_goals from localStorage, falling back to clean data", e);
+      return [];
     }
   });
 
   const [loans, setLoans] = useState<StudentLoan[]>(() => {
     try {
       const data = localStorage.getItem("fw_loans");
-      return data ? JSON.parse(data) : getLoansSeed(currency, userType);
+      return data ? JSON.parse(data) : [];
     } catch (e) {
-      console.warn("Failed to parse fw_loans from localStorage, falling back to seed data", e);
-      return getLoansSeed(currency, userType);
+      console.warn("Failed to parse fw_loans from localStorage, falling back to clean data", e);
+      return [];
     }
   });
 
   const [budgets, setBudgets] = useState<Record<string, number>>(() => {
     try {
       const data = localStorage.getItem("fw_budgets");
-      return data ? JSON.parse(data) : getBudgetsSeed(currency, userType);
+      return data ? JSON.parse(data) : DEFAULT_BUDGETS_EMPTY;
     } catch (e) {
-      console.warn("Failed to parse fw_budgets from localStorage, falling back to seed data", e);
-      return getBudgetsSeed(currency, userType);
+      console.warn("Failed to parse fw_budgets from localStorage, falling back to clean data", e);
+      return DEFAULT_BUDGETS_EMPTY;
     }
   });
 
@@ -400,34 +436,34 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, []);
 
-  const fetchSupabaseData = async (userProfileName: string) => {
+  const fetchSupabaseData = async (userId: string, email: string) => {
     if (!isSupabaseConfigured()) return null;
     try {
       let { data: profileData, error: profileErr } = await supabase
         .from("profiles")
         .select("*")
-        .eq("name", userProfileName)
+        .eq("id", userId)
         .maybeSingle();
 
       if (profileErr) throw profileErr;
 
       if (!profileData) {
-        const seedProfile = getProfileSeed(currency, userType);
-        seedProfile.name = userProfileName;
-        
+        // If not present in DB, insert a new profile row using the registered info
+        const defaultName = email.split("@")[0] || "User";
         const { data: newProfile, error: createErr } = await supabase
           .from("profiles")
           .insert({
-            name: seedProfile.name,
-            major: seedProfile.major,
-            gpa: seedProfile.gpa,
-            academic_year: seedProfile.academicYear,
-            income_tier: seedProfile.incomeTier,
-            first_gen: seedProfile.firstGen,
-            interests: seedProfile.interests,
-            monthly_allowance: seedProfile.monthlyAllowance,
+            id: userId,
+            name: defaultName,
+            user_type: userType,
             currency: currency,
-            user_type: userType
+            major: userType === "Student" ? "Undeclared" : "Developer",
+            gpa: userType === "Student" ? 4.0 : 0,
+            academic_year: userType === "Student" ? "Freshman" : "Graduated",
+            income_tier: "Income Tier 1",
+            first_gen: false,
+            interests: [],
+            monthly_allowance: userType === "Student" ? 10000 : 50000
           })
           .select()
           .single();
@@ -435,52 +471,19 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (createErr) throw createErr;
         profileData = newProfile;
 
-        // Seed initial sub-data
-        const seedTx = getTransactionsSeed(currency, userType);
-        const seedGoals = getGoalsSeed(currency);
-        const seedLoans = getLoansSeed(currency, userType);
-        const seedBudgets = getBudgetsSeed(currency, userType);
-
-        await Promise.all([
-          supabase.from("transactions").insert(
-            seedTx.map(t => ({
-              profile_id: profileData.id,
-              date: t.date,
-              description: t.description,
-              amount: t.amount,
-              category: t.category,
-              is_anomaly: t.isAnomaly,
-              anomaly_explanation: t.anomalyExplanation
-            }))
-          ),
-          supabase.from("savings_goals").insert(
-            seedGoals.map(g => ({
-              profile_id: profileData.id,
-              name: g.name,
-              target: g.target,
-              current: g.current
-            }))
-          ),
-          supabase.from("loans").insert(
-            seedLoans.map(l => ({
-              profile_id: profileData.id,
-              name: l.name,
-              principal: l.principal,
-              interest_rate: l.interestRate,
-              term_months: l.termMonths,
-              extra_payment: l.extraPayment,
-              type: l.type
-            }))
-          ),
-          supabase.from("budgets").insert(
-            Object.entries(seedBudgets).map(([category, limit_amount]) => ({
-              profile_id: profileData.id,
-              category,
-              limit_amount
-            }))
-          )
-        ]);
+        // Initialize empty budgets in Supabase for this user
+        const seedBudgets = budgets;
+        await supabase.from("budgets").insert(
+          Object.entries(seedBudgets).map(([category, limit_amount]) => ({
+            profile_id: profileData.id,
+            category,
+            limit_amount
+          }))
+        );
       }
+
+      // Store dbProfileId
+      setDbProfileId(profileData.id);
 
       // Fetch related data
       const [txRes, goalsRes, loansRes, budgetsRes] = await Promise.all([
@@ -491,7 +494,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       ]);
 
       if (txRes.data) {
-        setTransactions(txRes.data.map(t => ({
+        setTransactions(txRes.data.map((t: any) => ({
           id: t.id,
           date: t.date,
           description: t.description,
@@ -503,7 +506,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
 
       if (goalsRes.data) {
-        setGoals(goalsRes.data.map(g => ({
+        setGoals(goalsRes.data.map((g: any) => ({
           id: g.id,
           name: g.name,
           target: Number(g.target),
@@ -512,7 +515,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
 
       if (loansRes.data) {
-        setLoans(loansRes.data.map(l => ({
+        setLoans(loansRes.data.map((l: any) => ({
           id: l.id,
           name: l.name,
           principal: Number(l.principal),
@@ -523,7 +526,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         })));
       }
 
-      if (budgetsRes.data) {
+      if (budgetsRes.data && budgetsRes.data.length > 0) {
         const loadedBudgets: Record<string, number> = {};
         for (const b of budgetsRes.data) {
           loadedBudgets[b.category] = Number(b.limit_amount);
@@ -533,13 +536,13 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       setProfile({
         name: profileData.name,
-        major: profileData.major,
-        gpa: Number(profileData.gpa),
-        academicYear: profileData.academic_year,
+        major: profileData.major || "",
+        gpa: Number(profileData.gpa || 0),
+        academicYear: profileData.academic_year || "",
         interests: profileData.interests || [],
-        incomeTier: profileData.income_tier,
-        firstGen: profileData.first_gen,
-        monthlyAllowance: Number(profileData.monthly_allowance)
+        incomeTier: profileData.income_tier || "",
+        firstGen: profileData.first_gen || false,
+        monthlyAllowance: Number(profileData.monthly_allowance || 0)
       });
 
       return profileData.id;
@@ -549,22 +552,62 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
+  // Auth State Listener
   useEffect(() => {
-    if (isSupabaseConfigured() && isAuthenticated && profile.name) {
+    if (!isSupabaseConfigured()) return;
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setIsAuthenticated(true);
+        setIsGuest(false);
+        localStorage.setItem("fw_authenticated", "true");
+        localStorage.setItem("fw_is_guest", "false");
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setIsAuthenticated(true);
+        setIsGuest(false);
+        localStorage.setItem("fw_authenticated", "true");
+        localStorage.setItem("fw_is_guest", "false");
+      } else {
+        const isGuestMode = localStorage.getItem("fw_is_guest") === "true";
+        if (!isGuestMode) {
+          setIsAuthenticated(false);
+          setDbProfileId(null);
+          localStorage.removeItem("fw_authenticated");
+        }
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // Supabase User Data Loader
+  useEffect(() => {
+    if (isSupabaseConfigured() && isAuthenticated && !isGuest) {
       const loadData = async () => {
         setSupabaseStatus("syncing");
-        const profileId = await fetchSupabaseData(profile.name);
-        if (profileId) {
-          setSupabaseStatus("connected");
-          
-          if ("Notification" in window && Notification.permission === "granted") {
-            try {
-              new Notification("FinWise Real-Time Sync", {
-                body: `Successfully linked and synced data for "${profile.name}" from Supabase in real-time!`,
-              });
-            } catch (e) {
-              console.log("Notification blocked");
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const profileId = await fetchSupabaseData(user.id, user.email || "");
+          if (profileId) {
+            setSupabaseStatus("connected");
+            
+            if ("Notification" in window && Notification.permission === "granted") {
+              try {
+                new Notification("FinWise Real-Time Sync", {
+                  body: `Successfully linked and synced data from Supabase in real-time!`,
+                });
+              } catch (e) {
+                console.log("Notification blocked");
+              }
             }
+          } else {
+            setSupabaseStatus("error");
           }
         } else {
           setSupabaseStatus("error");
@@ -574,7 +617,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     } else {
       setSupabaseStatus(isSupabaseConfigured() ? "connected" : "local");
     }
-  }, [profile.name, isAuthenticated]);
+  }, [isAuthenticated, isGuest]);
 
   // Synchronization status hook
   useEffect(() => {
@@ -774,21 +817,17 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     setTransactions(prev => [newTx, ...prev]);
 
-    if (isSupabaseConfigured() && profile.name) {
-      supabase.from("profiles").select("id").eq("name", profile.name).maybeSingle().then(({ data }) => {
-        if (data) {
-          supabase.from("transactions").insert({
-            profile_id: data.id,
-            date: newTx.date,
-            description: newTx.description,
-            amount: newTx.amount,
-            category: newTx.category,
-            is_anomaly: newTx.isAnomaly,
-            anomaly_explanation: newTx.anomalyExplanation
-          }).then(({ error }) => {
-            if (error) console.error("Error inserting transaction to Supabase:", error);
-          });
-        }
+    if (isSupabaseConfigured() && dbProfileId) {
+      supabase.from("transactions").insert({
+        profile_id: dbProfileId,
+        date: newTx.date,
+        description: newTx.description,
+        amount: newTx.amount,
+        category: newTx.category,
+        is_anomaly: newTx.isAnomaly,
+        anomaly_explanation: newTx.anomalyExplanation
+      }).then(({ error }: any) => {
+        if (error) console.error("Error inserting transaction to Supabase:", error);
       });
     }
     
@@ -822,22 +861,18 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     setTransactions(prev => [...newTxs, ...prev]);
 
-    if (isSupabaseConfigured() && profile.name) {
-      supabase.from("profiles").select("id").eq("name", profile.name).maybeSingle().then(({ data }) => {
-        if (data) {
-          supabase.from("transactions").insert(
-            newTxs.map(tx => ({
-              profile_id: data.id,
-              date: tx.date,
-              description: tx.description,
-              amount: tx.amount,
-              category: tx.category,
-              is_anomaly: tx.isAnomaly
-            }))
-          ).then(({ error }) => {
-            if (error) console.error("Error bulk inserting transactions to Supabase:", error);
-          });
-        }
+    if (isSupabaseConfigured() && dbProfileId) {
+      supabase.from("transactions").insert(
+        newTxs.map(tx => ({
+          profile_id: dbProfileId,
+          date: tx.date,
+          description: tx.description,
+          amount: tx.amount,
+          category: tx.category,
+          is_anomaly: tx.isAnomaly
+        }))
+      ).then(({ error }: any) => {
+        if (error) console.error("Error bulk inserting transactions to Supabase:", error);
       });
     }
 
@@ -854,23 +889,19 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const target = transactions.find(t => t.id === id);
     setTransactions(prev => prev.filter(t => t.id !== id));
 
-    if (isSupabaseConfigured() && profile.name && target) {
+    if (isSupabaseConfigured() && dbProfileId && target) {
       if (typeof id === "string" && id.includes("-")) {
-        supabase.from("transactions").delete().eq("id", id).then(({ error }) => {
+        supabase.from("transactions").delete().eq("id", id).then(({ error }: any) => {
           if (error) console.error("Error deleting transaction from Supabase:", error);
         });
       } else {
-        supabase.from("profiles").select("id").eq("name", profile.name).maybeSingle().then(({ data }) => {
-          if (data) {
-            supabase.from("transactions").delete()
-              .eq("profile_id", data.id)
-              .eq("description", target.description)
-              .eq("amount", target.amount)
-              .then(({ error }) => {
-                if (error) console.error("Error deleting transaction from Supabase:", error);
-              });
-          }
-        });
+        supabase.from("transactions").delete()
+          .eq("profile_id", dbProfileId)
+          .eq("description", target.description)
+          .eq("amount", target.amount)
+          .then(({ error }: any) => {
+            if (error) console.error("Error deleting transaction from Supabase:", error);
+          });
       }
     }
   };
@@ -878,17 +909,13 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const updateBudgetLimit = (category: string, limit: number) => {
     setBudgets(prev => ({ ...prev, [category]: limit }));
 
-    if (isSupabaseConfigured() && profile.name) {
-      supabase.from("profiles").select("id").eq("name", profile.name).maybeSingle().then(({ data }) => {
-        if (data) {
-          supabase.from("budgets").upsert({
-            profile_id: data.id,
-            category: category,
-            limit_amount: limit
-          }, { onConflict: "profile_id,category" }).then(({ error }) => {
-            if (error) console.error("Error upserting budget in Supabase:", error);
-          });
-        }
+    if (isSupabaseConfigured() && dbProfileId) {
+      supabase.from("budgets").upsert({
+        profile_id: dbProfileId,
+        category: category,
+        limit_amount: limit
+      }, { onConflict: "profile_id,category" }).then(({ error }: any) => {
+        if (error) console.error("Error upserting budget in Supabase:", error);
       });
     }
   };
@@ -902,18 +929,14 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
     setGoals(prev => [...prev, newGoal]);
 
-    if (isSupabaseConfigured() && profile.name) {
-      supabase.from("profiles").select("id").eq("name", profile.name).maybeSingle().then(({ data }) => {
-        if (data) {
-          supabase.from("savings_goals").insert({
-            profile_id: data.id,
-            name: newGoal.name,
-            target: newGoal.target,
-            current: newGoal.current
-          }).then(({ error }) => {
-            if (error) console.error("Error inserting goal to Supabase:", error);
-          });
-        }
+    if (isSupabaseConfigured() && dbProfileId) {
+      supabase.from("savings_goals").insert({
+        profile_id: dbProfileId,
+        name: newGoal.name,
+        target: newGoal.target,
+        current: newGoal.current
+      }).then(({ error }: any) => {
+        if (error) console.error("Error inserting goal to Supabase:", error);
       });
     }
     
@@ -940,22 +963,18 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       })
     );
 
-    if (isSupabaseConfigured() && profile.name && target) {
+    if (isSupabaseConfigured() && dbProfileId && target) {
       if (typeof id === "string" && id.includes("-")) {
-        supabase.from("savings_goals").update({ current: Math.max(0, amount) }).eq("id", id).then(({ error }) => {
+        supabase.from("savings_goals").update({ current: Math.max(0, amount) }).eq("id", id).then(({ error }: any) => {
           if (error) console.error("Error updating goal in Supabase:", error);
         });
       } else {
-        supabase.from("profiles").select("id").eq("name", profile.name).maybeSingle().then(({ data }) => {
-          if (data) {
-            supabase.from("savings_goals").update({ current: Math.max(0, amount) })
-              .eq("profile_id", data.id)
-              .eq("name", target.name)
-              .then(({ error }) => {
-                if (error) console.error("Error updating goal in Supabase:", error);
-              });
-          }
-        });
+        supabase.from("savings_goals").update({ current: Math.max(0, amount) })
+          .eq("profile_id", dbProfileId)
+          .eq("name", target.name)
+          .then(({ error }: any) => {
+            if (error) console.error("Error updating goal in Supabase:", error);
+          });
       }
     }
   };
@@ -964,22 +983,18 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const target = goals.find(g => g.id === id);
     setGoals(prev => prev.filter(g => g.id !== id));
 
-    if (isSupabaseConfigured() && profile.name && target) {
+    if (isSupabaseConfigured() && dbProfileId && target) {
       if (typeof id === "string" && id.includes("-")) {
-        supabase.from("savings_goals").delete().eq("id", id).then(({ error }) => {
+        supabase.from("savings_goals").delete().eq("id", id).then(({ error }: any) => {
           if (error) console.error("Error deleting goal from Supabase:", error);
         });
       } else {
-        supabase.from("profiles").select("id").eq("name", profile.name).maybeSingle().then(({ data }) => {
-          if (data) {
-            supabase.from("savings_goals").delete()
-              .eq("profile_id", data.id)
-              .eq("name", target.name)
-              .then(({ error }) => {
-                if (error) console.error("Error deleting goal from Supabase:", error);
-              });
-          }
-        });
+        supabase.from("savings_goals").delete()
+          .eq("profile_id", dbProfileId)
+          .eq("name", target.name)
+          .then(({ error }: any) => {
+            if (error) console.error("Error deleting goal from Supabase:", error);
+          });
       }
     }
   };
@@ -990,22 +1005,18 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       prev.map(l => (l.id === id ? { ...l, extraPayment: Math.max(0, extraPayment) } : l))
     );
 
-    if (isSupabaseConfigured() && profile.name && target) {
+    if (isSupabaseConfigured() && dbProfileId && target) {
       if (typeof id === "string" && id.includes("-")) {
-        supabase.from("loans").update({ extra_payment: Math.max(0, extraPayment) }).eq("id", id).then(({ error }) => {
+        supabase.from("loans").update({ extra_payment: Math.max(0, extraPayment) }).eq("id", id).then(({ error }: any) => {
           if (error) console.error("Error updating loan in Supabase:", error);
         });
       } else {
-        supabase.from("profiles").select("id").eq("name", profile.name).maybeSingle().then(({ data }) => {
-          if (data) {
-            supabase.from("loans").update({ extra_payment: Math.max(0, extraPayment) })
-              .eq("profile_id", data.id)
-              .eq("name", target.name)
-              .then(({ error }) => {
-                if (error) console.error("Error updating loan in Supabase:", error);
-              });
-          }
-        });
+        supabase.from("loans").update({ extra_payment: Math.max(0, extraPayment) })
+          .eq("profile_id", dbProfileId)
+          .eq("name", target.name)
+          .then(({ error }: any) => {
+            if (error) console.error("Error updating loan in Supabase:", error);
+          });
       }
     }
   };
@@ -1026,76 +1037,158 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setBurnRateMultiplier(1.0);
 
     // If Supabase is connected, clear tables and re-seed in DB
-    if (isSupabaseConfigured() && profile.name) {
+    if (isSupabaseConfigured() && dbProfileId) {
       setSupabaseStatus("syncing");
-      supabase.from("profiles").select("id").eq("name", profile.name).maybeSingle().then(({ data }) => {
-        if (data) {
-          Promise.all([
-            supabase.from("transactions").delete().eq("profile_id", data.id),
-            supabase.from("savings_goals").delete().eq("profile_id", data.id),
-            supabase.from("loans").delete().eq("profile_id", data.id),
-            supabase.from("budgets").delete().eq("profile_id", data.id)
-          ]).then(() => {
-            // Upload seeds
-            Promise.all([
-              supabase.from("transactions").insert(tSeed.map(t => ({
-                profile_id: data.id,
-                date: t.date,
-                description: t.description,
-                amount: t.amount,
-                category: t.category,
-                is_anomaly: t.isAnomaly,
-                anomaly_explanation: t.anomalyExplanation
-              }))),
-              supabase.from("savings_goals").insert(gSeed.map(g => ({
-                profile_id: data.id,
-                name: g.name,
-                target: g.target,
-                current: g.current
-              }))),
-              supabase.from("loans").insert(lSeed.map(l => ({
-                profile_id: data.id,
-                name: l.name,
-                principal: l.principal,
-                interest_rate: l.interestRate,
-                term_months: l.termMonths,
-                extra_payment: l.extraPayment,
-                type: l.type
-              }))),
-              supabase.from("budgets").insert(Object.entries(bSeed).map(([category, limit_amount]) => ({
-                profile_id: data.id,
-                category,
-                limit_amount
-              })))
-            ]).then(() => {
-              setSupabaseStatus("connected");
-            });
-          });
-        }
+      Promise.all([
+        supabase.from("transactions").delete().eq("profile_id", dbProfileId),
+        supabase.from("savings_goals").delete().eq("profile_id", dbProfileId),
+        supabase.from("loans").delete().eq("profile_id", dbProfileId),
+        supabase.from("budgets").delete().eq("profile_id", dbProfileId)
+      ]).then(() => {
+        // Upload seeds
+        Promise.all([
+          supabase.from("transactions").insert(tSeed.map(t => ({
+            profile_id: dbProfileId,
+            date: t.date,
+            description: t.description,
+            amount: t.amount,
+            category: t.category,
+            is_anomaly: t.isAnomaly,
+            anomaly_explanation: t.anomalyExplanation
+          }))),
+          supabase.from("savings_goals").insert(gSeed.map(g => ({
+            profile_id: dbProfileId,
+            name: g.name,
+            target: g.target,
+            current: g.current
+          }))),
+          supabase.from("loans").insert(lSeed.map(l => ({
+            profile_id: dbProfileId,
+            name: l.name,
+            principal: l.principal,
+            interest_rate: l.interestRate,
+            term_months: l.termMonths,
+            extra_payment: l.extraPayment,
+            type: l.type
+          }))),
+          supabase.from("budgets").insert(Object.entries(bSeed).map(([category, limit_amount]) => ({
+            profile_id: dbProfileId,
+            category,
+            limit_amount
+          })))
+        ]).then(() => {
+          setSupabaseStatus("connected");
+        });
       });
     }
   };
 
-  const login = (username: string, type: "Student" | "Professional", curr: "USD" | "INR") => {
-    setIsAuthenticated(true);
-    setIsGuest(false);
-    localStorage.setItem("fw_authenticated", "true");
-    localStorage.setItem("fw_is_guest", "false");
-    
-    setUserTypeState(type);
-    setCurrencyState(curr);
-    localStorage.setItem("fw_user_type", type);
-    localStorage.setItem("fw_currency", curr);
-    
-    const initialProfile = getProfileSeed(curr, type);
-    initialProfile.name = username || "Aman Kashe";
-    setProfile(initialProfile);
-    localStorage.setItem("fw_profile", JSON.stringify(initialProfile));
-    
-    setTransactions(getTransactionsSeed(curr, type));
-    setGoals(getGoalsSeed(curr));
-    setLoans(getLoansSeed(curr, type));
-    setBudgets(getBudgetsSeed(curr, type));
+  const login = async (
+    email: string,
+    password: string,
+    type: "Student" | "Professional",
+    curr: "USD" | "INR"
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (isSupabaseConfigured()) {
+      try {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+        if (error) return { success: false, error: error.message };
+
+        setIsAuthenticated(true);
+        setIsGuest(false);
+        localStorage.setItem("fw_authenticated", "true");
+        localStorage.setItem("fw_is_guest", "false");
+        
+        setUserType(type);
+        setCurrency(curr);
+        
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: err.message || "Sign in failed" };
+      }
+    } else {
+      // Local mode sign in
+      setIsAuthenticated(true);
+      setIsGuest(false);
+      localStorage.setItem("fw_authenticated", "true");
+      localStorage.setItem("fw_is_guest", "false");
+      
+      setUserType(type);
+      setCurrency(curr);
+      
+      const localProfile = {
+        name: email.split("@")[0] || "Local User",
+        major: type === "Student" ? "Undeclared" : "Developer",
+        gpa: type === "Student" ? 4.0 : 0,
+        academicYear: type === "Student" ? "Freshman" : "Graduated",
+        incomeTier: "Local Account",
+        firstGen: false,
+        interests: [],
+        monthlyAllowance: type === "Student" ? 10000 : 50000
+      };
+      setProfile(localProfile);
+      localStorage.setItem("fw_profile", JSON.stringify(localProfile));
+      
+      setTransactions([]);
+      setGoals([]);
+      setLoans([]);
+      setBudgets(DEFAULT_BUDGETS_EMPTY);
+      return { success: true };
+    }
+  };
+
+  const registerUser = async (
+    email: string,
+    password: string,
+    name: string,
+    type: "Student" | "Professional",
+    curr: "USD" | "INR"
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (isSupabaseConfigured()) {
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password
+        });
+        if (error) return { success: false, error: error.message };
+        if (!data.user) return { success: false, error: "Registration failed." };
+
+        const { error: profileErr } = await supabase.from("profiles").insert({
+          id: data.user.id,
+          name: name || email.split("@")[0],
+          user_type: type,
+          currency: curr,
+          major: type === "Student" ? "Undeclared" : "Developer",
+          gpa: type === "Student" ? 4.0 : 0,
+          academic_year: type === "Student" ? "Freshman" : "Graduated",
+          income_tier: "Income Tier 1",
+          first_gen: false,
+          interests: [],
+          monthly_allowance: type === "Student" ? 10000 : 50000
+        });
+
+        if (profileErr) {
+          console.error("Error seeding profile on registration:", profileErr);
+        }
+
+        setIsAuthenticated(true);
+        setIsGuest(false);
+        localStorage.setItem("fw_authenticated", "true");
+        localStorage.setItem("fw_is_guest", "false");
+        
+        setUserType(type);
+        setCurrency(curr);
+
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, error: err.message || "Registration failed" };
+      }
+    } else {
+      return login(email, password, type, curr);
+    }
   };
 
   const loginAsGuest = (type: "Student" | "Professional", curr: "USD" | "INR") => {
@@ -1104,25 +1197,32 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     localStorage.setItem("fw_authenticated", "true");
     localStorage.setItem("fw_is_guest", "true");
     
-    setUserTypeState(type);
-    setCurrencyState(curr);
-    localStorage.setItem("fw_user_type", type);
-    localStorage.setItem("fw_currency", curr);
+    setUserType(type);
+    setCurrency(curr);
     
-    const guestProfile = getProfileSeed(curr, type);
-    guestProfile.name = "Guest User";
+    const guestProfile = {
+      name: "Guest User",
+      major: type === "Student" ? "Undeclared" : "Developer",
+      gpa: type === "Student" ? 4.0 : 0,
+      academicYear: type === "Student" ? "Freshman" : "Graduated",
+      incomeTier: "Guest Mode",
+      firstGen: false,
+      interests: [],
+      monthlyAllowance: type === "Student" ? 10000 : 50000
+    };
     setProfile(guestProfile);
     localStorage.setItem("fw_profile", JSON.stringify(guestProfile));
     
-    setTransactions(getTransactionsSeed(curr, type));
-    setGoals(getGoalsSeed(curr));
-    setLoans(getLoansSeed(curr, type));
-    setBudgets(getBudgetsSeed(curr, type));
+    setTransactions([]);
+    setGoals([]);
+    setLoans([]);
+    setBudgets(DEFAULT_BUDGETS_EMPTY);
   };
 
   const logout = () => {
     setIsAuthenticated(false);
     setIsGuest(false);
+    setDbProfileId(null);
     localStorage.removeItem("fw_authenticated");
     localStorage.removeItem("fw_is_guest");
     localStorage.removeItem("fw_profile");
@@ -1130,13 +1230,17 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     localStorage.removeItem("fw_goals");
     localStorage.removeItem("fw_loans");
     localStorage.removeItem("fw_budgets");
-    
-    // Reset to default seed profiles
-    setProfile(getProfileSeed(currency, userType));
-    setTransactions(getTransactionsSeed(currency, userType));
-    setGoals(getGoalsSeed(currency));
-    setLoans(getLoansSeed(currency, userType));
-    setBudgets(getBudgetsSeed(currency, userType));
+    localStorage.removeItem("fw_db_profile_id");
+
+    if (isSupabaseConfigured()) {
+      supabase.auth.signOut().catch((e: any) => console.error("Error signing out:", e));
+    }
+
+    setProfile(DEFAULT_PROFILE_EMPTY);
+    setTransactions([]);
+    setGoals([]);
+    setLoans([]);
+    setBudgets(DEFAULT_BUDGETS_EMPTY);
   };
 
   return (
@@ -1177,6 +1281,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         updateLoanExtraPayment,
         resetDemoData,
         login,
+        registerUser,
         loginAsGuest,
         logout,
       }}
