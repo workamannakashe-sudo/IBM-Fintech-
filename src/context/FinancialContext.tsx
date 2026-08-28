@@ -686,17 +686,24 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   // --- Dynamic Math Properties ---
+  const currentMonthPrefix = (() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    return `${year}-${month < 10 ? '0' + month : month}`;
+  })();
+
   const totalSpentThisMonth = transactions
-    .filter(t => t.date.startsWith("2026-08"))
+    .filter(t => t.date.startsWith(currentMonthPrefix))
     .reduce((sum, t) => sum + t.amount, 0);
 
   const activeLoggingDays = new Set(
     transactions
-      .filter(t => t.date.startsWith("2026-08"))
+      .filter(t => t.date.startsWith(currentMonthPrefix))
       .map(t => t.date)
   ).size;
 
-  const currentDayOfMonth = new Date("2026-08-27").getDate(); // Grounded in 2026-08-27
+  const currentDayOfMonth = new Date().getDate(); // Grounded in current date
 
   // Spending Velocity calculation
   const rawDailyBurn = currentDayOfMonth > 0 ? totalSpentThisMonth / currentDayOfMonth : totalSpentThisMonth;
@@ -710,7 +717,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const remainingBudget = Math.max(0, totalBudgetLimit - totalSpentThisMonth);
     const daysLeft = Math.round(remainingBudget / dailyBurnRate);
     if (daysLeft < 30 - currentDayOfMonth) {
-      const burnoutDate = new Date("2026-08-27");
+      const burnoutDate = new Date();
       burnoutDate.setDate(burnoutDate.getDate() + daysLeft);
       projectedBurnoutDay = burnoutDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     } else {
@@ -783,7 +790,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     date?: string,
     category?: string
   ): Promise<Transaction> => {
-    const txDate = date || "2026-08-27";
+    const txDate = date || new Date().toISOString().split("T")[0];
     const parsedCategory = category || (await autoCategorizeExpense(description));
 
     // Determine if this is an anomaly
@@ -1024,7 +1031,26 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const resetDemoData = () => {
     // Reset local state
     const pSeed = getProfileSeed(currency, userType);
-    const tSeed = getTransactionsSeed(currency, userType);
+    const rawTSeed = getTransactionsSeed(currency, userType);
+    
+    // Map transaction dates to current month dynamically
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const monthStr = month < 10 ? `0${month}` : `${month}`;
+    const currentDay = now.getDate();
+    
+    const tSeed = rawTSeed.map(t => {
+      const dayMatch = t.date.match(/-(\d{2})$/);
+      const dayNum = dayMatch ? parseInt(dayMatch[1]) : 1;
+      const targetDayNum = Math.min(dayNum, currentDay);
+      const dayStr = targetDayNum < 10 ? `0${targetDayNum}` : `${targetDayNum}`;
+      return {
+        ...t,
+        date: `${year}-${monthStr}-${dayStr}`
+      };
+    });
+
     const gSeed = getGoalsSeed(currency);
     const lSeed = getLoansSeed(currency, userType);
     const bSeed = getBudgetsSeed(currency, userType);

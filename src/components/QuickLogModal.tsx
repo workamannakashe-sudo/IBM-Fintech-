@@ -14,7 +14,7 @@ export const QuickLogModal: React.FC<QuickLogModalProps> = ({ isOpen, onClose })
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
-  const [date, setDate] = useState("2026-08-27"); // Grounded in current context
+  const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]); // Dynamic current date
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;

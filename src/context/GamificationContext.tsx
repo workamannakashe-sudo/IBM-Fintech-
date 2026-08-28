@@ -196,11 +196,25 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setXp(120);
     setLevel(1);
     setStreak(4);
-    setBadges([{ ...ALL_BADGES[0], unlockedAt: "2026-08-20" }]);
+
+    const getPastDateStr = (daysAgo: number) => {
+      const d = new Date();
+      d.setDate(d.getDate() - daysAgo);
+      return d.toISOString().split("T")[0];
+    };
+
+    setBadges([{ ...ALL_BADGES[0], unlockedAt: getPastDateStr(2) }]);
     setLoggingHistory([
-      "2026-08-01", "2026-08-05", "2026-08-08", "2026-08-10", 
-      "2026-08-12", "2026-08-15", "2026-08-18", "2026-08-20", 
-      "2026-08-22", "2026-08-24"
+      getPastDateStr(24),
+      getPastDateStr(20),
+      getPastDateStr(17),
+      getPastDateStr(15),
+      getPastDateStr(13),
+      getPastDateStr(10),
+      getPastDateStr(7),
+      getPastDateStr(5),
+      getPastDateStr(2),
+      getPastDateStr(1)
     ]);
   };
 

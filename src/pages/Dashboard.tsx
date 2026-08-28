@@ -63,16 +63,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onOpenQuickL
 
   // Area Chart Data
   const chartData = useMemo(() => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const currentDay = now.getDate();
+    
+    const monthNamesShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const monthAbbr = monthNamesShort[currentMonth];
+
     const dayMap: Record<number, number> = {};
-    for (let i = 1; i <= 27; i++) {
+    for (let i = 1; i <= currentDay; i++) {
       dayMap[i] = 0;
     }
     
+    const monthStr = (currentMonth + 1) < 10 ? `0${currentMonth + 1}` : `${currentMonth + 1}`;
+    const dateRegex = new RegExp(`^${currentYear}-${monthStr}-(\\d{2})`);
+
     transactions.forEach(t => {
-      const match = t.date.match(/2026-08-(\d{2})/);
+      const match = t.date.match(dateRegex);
       if (match) {
         const day = parseInt(match[1]);
-        if (day <= 27) {
+        if (day <= currentDay) {
           dayMap[day] = (dayMap[day] || 0) + t.amount;
         }
       }
@@ -82,7 +93,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onOpenQuickL
     return Object.entries(dayMap).map(([day, val]) => {
       runningTotal += val;
       return {
-        name: `Aug ${day}`,
+        name: `${monthAbbr} ${day}`,
         Spent: parseFloat(runningTotal.toFixed(2)),
       };
     });

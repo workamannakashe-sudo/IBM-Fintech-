@@ -39,20 +39,39 @@ export const Habits: React.FC = () => {
     return "Budget Rookie 🌱";
   }, [level]);
 
-  // Heatmap Calendar Calculations (August 1 to August 31, 2026)
-  // August 2026 starts on a Saturday. For simplicity, we can render a clean grid of 31 days
-  const calendarDays = useMemo(() => {
+  // Dynamic Heatmap Calendar Calculations based on ongoing month
+  const { currentMonthName, calendarDays, offsetDaysCount } = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth(); // 0-indexed
+    
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+    
+    // Days in current month
+    const totalDays = new Date(year, month + 1, 0).getDate();
+    // Offset for the first day of the month (0 = Sunday, 6 = Saturday)
+    const firstDayIndex = new Date(year, month, 1).getDay();
+    
     const days: Array<{ dateStr: string; dayNum: number; active: boolean }> = [];
-    for (let i = 1; i <= 31; i++) {
+    for (let i = 1; i <= totalDays; i++) {
       const dayStr = i < 10 ? `0${i}` : `${i}`;
-      const fullDate = `2026-08-${dayStr}`;
+      const monthStr = (month + 1) < 10 ? `0${month + 1}` : `${month + 1}`;
+      const fullDate = `${year}-${monthStr}-${dayStr}`;
       days.push({
         dateStr: fullDate,
         dayNum: i,
         active: loggingHistory.includes(fullDate),
       });
     }
-    return days;
+    
+    return {
+      currentMonthName: `${monthNames[month]} ${year}`,
+      calendarDays: days,
+      offsetDaysCount: firstDayIndex
+    };
   }, [loggingHistory]);
 
   return (
@@ -115,7 +134,7 @@ export const Habits: React.FC = () => {
       <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
         <h3 className="font-display text-sm font-bold text-slate-800 uppercase tracking-wide mb-4 flex items-center gap-1.5">
           <CalendarClock className="h-5 w-5 text-brand-teal" />
-          Logging Activity Calendar (August 2026)
+          Logging Activity Calendar ({currentMonthName})
         </h3>
 
         {/* Github style contribution grid */}
@@ -127,8 +146,8 @@ export const Habits: React.FC = () => {
             </div>
           ))}
 
-          {/* Blank offsets because August 1st 2026 is Saturday */}
-          {Array.from({ length: 6 }).map((_, idx) => (
+          {/* Blank offsets matching first weekday of the month */}
+          {Array.from({ length: offsetDaysCount }).map((_, idx) => (
             <div key={`offset-${idx}`} className="aspect-square bg-transparent" />
           ))}
 

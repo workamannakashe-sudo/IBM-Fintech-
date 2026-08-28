@@ -152,7 +152,7 @@ export const Expenses: React.FC = () => {
 
     setLogLoading(true);
     try {
-      await addTransaction(description, parsedAmt, "2026-08-27", category);
+      await addTransaction(description, parsedAmt, new Date().toISOString().split("T")[0], category);
       setDescription("");
       setAmount("");
     } catch (error) {
