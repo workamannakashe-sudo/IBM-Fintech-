@@ -18,7 +18,8 @@ import {
   Moon,
   Settings,
   X,
-  RefreshCw
+  RefreshCw,
+  Users
 } from "lucide-react";
 
 interface SidebarProps {
@@ -46,6 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "affordability", label: "Afford-Check", icon: Wallet },
+    { id: "split", label: "Split Bill", icon: Users },
     { id: "scholarships", label: "Schemes", icon: FileText },
     { id: "advisor", label: "Chat & AI", icon: MessageSquare },
     { id: "expenses", label: "Expenses", icon: Receipt },

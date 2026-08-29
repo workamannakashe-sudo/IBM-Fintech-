@@ -14,6 +14,7 @@ import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
 import { Expenses } from "./pages/Expenses";
 import { Affordability } from "./pages/Affordability";
+import { SplitBill } from "./pages/SplitBill";
 import { Loans } from "./pages/Loans";
 import { Scholarships } from "./pages/Scholarships";
 import { Budget } from "./pages/Budget";
@@ -38,6 +39,8 @@ function AppContent() {
         return <Expenses />;
       case "affordability":
         return <Affordability />;
+      case "split":
+        return <SplitBill />;
       case "loans":
         return <Loans />;
       case "scholarships":
