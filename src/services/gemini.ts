@@ -1,7 +1,5 @@
-// BudgetMitra — IBM Bob AI Client (gemini.ts)
-// Central service for all AI reasoning calls, each isolated with a fixed system prompt per feature.
-// Powered by Gemini API — treated as "IBM Bob" in the UI.
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { askIBMBob } from "./ibmBob";
 import {
   BOB_CHAT_SYSTEM_PROMPT,
   ADVISOR_COACH_SYSTEM_PROMPT,
@@ -368,12 +366,12 @@ Return ONLY the JSON array of eligible schemes.`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BOB CHAT — Multi-turn financial literacy assistant
+// BOB CHAT — Multi-turn financial literacy assistant (IBM Bob)
 // ─────────────────────────────────────────────────────────────────────────────
 export async function askBob(params: {
   message: string;
   chatHistory: Array<{ role: "user" | "model"; parts: string }>;
-  preferredLanguage: "en" | "hi" | "mr";
+  preferredLanguage?: "en" | "hi" | "mr";
   financialContext: {
     remainingBudget: number;
     monthlyAllowance: number;
@@ -383,87 +381,13 @@ export async function askBob(params: {
     recentTransactions: Array<{ description: string; amount: number; category: string }>;
   };
 }): Promise<string> {
-  const { message, chatHistory, preferredLanguage, financialContext: fc } = params;
-  const msg = message.toLowerCase();
+  const { message, chatHistory, financialContext: fc } = params;
 
-  const heuristic = (): string => {
-    if (preferredLanguage === "hi") {
-      if (msg.includes("burn rate") || msg.includes("खर्च") || msg.includes("रफ्तार") || msg.includes("दर")) {
-        return `📊 आपका दैनिक खर्च दर (Daily Burn Rate) ₹${fc.dailyBurnRate.toFixed(0)}/दिन है। इस रफ्तार से आप इस महीने ₹${(fc.dailyBurnRate * 30).toFixed(0)} खर्च कर देंगे, जबकि आपका कुल मासिक बजट ₹${fc.monthlyAllowance.toFixed(0)} है।`;
-      }
-      if (msg.includes("afford") || msg.includes("buy") || msg.includes("खरीद") || msg.includes("लेना")) {
-        return `💡 किसी भी खरीदारी के लिए ऊपर "Can I Afford?" टैब का उपयोग करें! मैं आपके शेष बजट (₹${fc.remainingBudget.toFixed(0)}) और महीने के बचे हुए दिनों का विश्लेषण करके तुरंत सही फैसला दूंगा।`;
-      }
-      if (msg.includes("scholarship") || msg.includes("loan") || msg.includes("छात्रवृत्ति") || msg.includes("वजीफा") || msg.includes("कर्ज")) {
-        return `🎓 "Schemes" टैब देखें! आपकी प्रोफाइल के आधार पर पीएमएसएस (PMSS), पोस्ट-मैट्रिक ओबीसी, और विद्या लक्ष्मी जैसे सरकारी लाभ उपलब्ध हैं।`;
-      }
-      if (msg.includes("save") || msg.includes("बचत") || msg.includes("पैसे बचा")) {
-        return `💰 Bob का नियम: महीने के पहले दिन ही अपने भत्ते का 10% (₹${(fc.monthlyAllowance * 0.1).toFixed(0)}) किसी बचत लक्ष्य में अलग रख लें। इसे "Pay Yourself First" रणनीति कहते हैं।`;
-      }
-      const hindiTips = [
-        `आपका शेष बजट ₹${fc.remainingBudget.toFixed(0)} है। हर छोटा खर्च (जैसे ₹10 की चाय) भी तुरंत लॉग करें ताकि मेरा विश्लेषण सटीक रहे!`,
-        `सलाह: नेशनल स्कॉलरशिप पोर्टल (scholarships.gov.in) पर कई ऐसी योजनाएं हैं जिनके लिए आप पात्र हैं।`,
-        `आपने इस महीने अब तक ₹${fc.totalSpentThisMonth.toFixed(0)} खर्च किए हैं। ₹500 से ऊपर की किसी भी गैर-ज़रूरी खरीदारी से पहले 48 घंटे रुकें — इससे 80% फिजूलखर्ची रुक जाती है।`,
-      ];
-      return hindiTips[Math.floor(Math.random() * hindiTips.length)];
-    }
-
-    if (preferredLanguage === "mr") {
-      if (msg.includes("burn rate") || msg.includes("खर्च") || msg.includes("वेग") || msg.includes("दर")) {
-        return `📊 तुमचा दैनंदिन खर्च दर (Daily Burn Rate) ₹${fc.dailyBurnRate.toFixed(0)}/दिवस आहे. या वेगाने तुम्ही या महिन्यात सुमारे ₹${(fc.dailyBurnRate * 30).toFixed(0)} खर्च कराल, तर तुमचा मासिक पॉकेट मनी ₹${fc.monthlyAllowance.toFixed(0)} आहे.`;
-      }
-      if (msg.includes("afford") || msg.includes("buy") || msg.includes("खरेदी") || msg.includes("घ्यावे")) {
-        return `💡 खरेदी करण्यापूर्वी "Can I Afford?" टॅब वापरा! तुमच्या उरलेल्या ₹${fc.remainingBudget.toFixed(0)} बजेट आणि शिल्लक दिवसांचे विश्लेषण करून मी लगेच सल्ला देईन.`;
-      }
-      if (msg.includes("scholarship") || msg.includes("loan") || msg.includes("शिष्यवृत्ती") || msg.includes("कर्ज")) {
-        return `🎓 "Schemes" टॅब तपासा! तुमच्या प्रोफाइलनुसार महाराष्ट्र आणि केंद्र सरकारच्या पीएमएसएस, पोस्ट-मॅट्रिक व विद्यालक्ष्मी योजनांसाठी तुम्ही पात्र आहात.`;
-      }
-      if (msg.includes("save") || msg.includes("बचत") || msg.includes("पैसे वाचवा")) {
-        return `💰 Bob चा नियम: महिन्याच्या पहिल्याच दिवशी तुमच्या पॉकेट मनीचे 10% (₹${(fc.monthlyAllowance * 0.1).toFixed(0)}) बचत खात्यात बाजूला ठेवा. याला "Pay Yourself First" म्हणतात.`;
-      }
-      const marathiTips = [
-        `तुमचे शिल्लक बजेट ₹${fc.remainingBudget.toFixed(0)} आहे. चहाचा ₹१० खर्चही ॲपमध्ये नोंदवा, जेणेकरून बजेट अचूक राहील!`,
-        `महत्त्वाची टीप: राष्ट्रीय शिष्यवृत्ती पोर्टल (scholarships.gov.in) वर सरकारी शिष्यवृत्तीसाठी अर्ज करा.`,
-        `तुम्ही या महिन्यात आतापर्यंत ₹${fc.totalSpentThisMonth.toFixed(0)} खर्च केले आहेत. ₹५०० पेक्षा जास्त खरेदीपूर्वी ४८ तास वाट पाहण्याचा नियम वापरा.`,
-      ];
-      return marathiTips[Math.floor(Math.random() * marathiTips.length)];
-    }
-
-    // English
-    if (msg.includes("burn rate") || msg.includes("burn") || msg.includes("pace")) {
-      return `Your daily burn rate is ₹${fc.dailyBurnRate.toFixed(0)}/day. At this pace, you'll spend ₹${(fc.dailyBurnRate * 30).toFixed(0)} this month vs your allowance of ₹${fc.monthlyAllowance.toFixed(0)}.`;
-    }
-    if (msg.includes("afford") || msg.includes("buy")) {
-      return `Use the "Can I Afford This?" tab to get Bob's step-by-step reasoning on any purchase. It analyzes your remaining ₹${fc.remainingBudget.toFixed(0)} budget and days left this month.`;
-    }
-    if (msg.includes("scholarship") || msg.includes("loan")) {
-      return `Head to the Schemes tab! Based on your profile, Bob will filter all real Indian government schemes you're likely eligible for — including PMSS, CSSS, and Vidya Lakshmi.`;
-    }
-    if (msg.includes("save")) {
-      return `Start small: transfer 10% of your monthly allowance (₹${(fc.monthlyAllowance * 0.1).toFixed(0)}) to a savings goal on Day 1 of every month. Bob calls this the "Pay Yourself First" strategy.`;
-    }
-    const tips = [
-      `Your remaining budget is ₹${fc.remainingBudget.toFixed(0)}. Try logging every expense — even ₹10 chai — to keep Bob's analysis accurate!`,
-      `A quick tip: Check the National Scholarship Portal (scholarships.gov.in) — there are schemes you likely haven't applied for yet.`,
-      `You've spent ₹${fc.totalSpentThisMonth.toFixed(0)} this month. Try the 48-hour rule: wait 2 days before any purchase above ₹500. It eliminates 80% of impulse buys.`,
-    ];
-    return tips[Math.floor(Math.random() * tips.length)];
-  };
-
-  if (!genAI) return heuristic();
-
-  try {
-    const langNote =
-      preferredLanguage === "hi"
-        ? "CRITICAL RULE: Respond completely in Hindi (हिंदी, Devanagari script). Do not output English."
-        : preferredLanguage === "mr"
-        ? "CRITICAL RULE: Respond completely in Marathi (मराठी, Devanagari script). Do not output English."
-        : "Respond in friendly, clear English.";
-
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      systemInstruction: `${BOB_CHAT_SYSTEM_PROMPT}
-${langNote}
+  if (genAI) {
+    try {
+      const model = genAI.getGenerativeModel({
+        model: "gemini-2.5-flash",
+        systemInstruction: `${BOB_CHAT_SYSTEM_PROMPT}
 
 Student's live financial snapshot:
 - Remaining budget this month: ₹${fc.remainingBudget.toFixed(0)}
@@ -472,30 +396,50 @@ Student's live financial snapshot:
 - Daily burn rate: ₹${fc.dailyBurnRate.toFixed(0)}/day
 - Savings goals: ${fc.savingsGoals.map((g) => `${g.name} (₹${g.current}/₹${g.target})`).join(", ") || "None set"}
 - Recent transactions: ${fc.recentTransactions.slice(0, 5).map((t) => `${t.description} (₹${t.amount}, ${t.category})`).join("; ")}`,
-    });
+      });
 
-    const chat = model.startChat({
-      history: chatHistory.map((h) => ({
-        role: h.role,
-        parts: [{ text: h.parts }],
-      })),
-    });
+      const chat = model.startChat({
+        history: chatHistory.map((h) => ({
+          role: h.role,
+          parts: [{ text: h.parts }],
+        })),
+      });
 
-    const result = await chat.sendMessage(message);
-    return result.response.text().trim() || heuristic();
-  } catch (err) {
-    console.warn("askBob: Gemini failed, using heuristics.", err);
-    return heuristic();
+      const result = await chat.sendMessage(message);
+      const output = result.response.text().trim();
+      if (output) return output;
+    } catch (err) {
+      console.warn("askBob: Gemini live call error, using IBM Bob engine:", err);
+    }
   }
+
+  // Use IBM Bob AI financial intelligence engine
+  return askIBMBob({
+    message,
+    financialContext: {
+      liquidBalance: fc.remainingBudget,
+      monthlyIncome: fc.monthlyAllowance,
+      totalSpentThisMonth: fc.totalSpentThisMonth,
+      dailyBurnRate: fc.dailyBurnRate,
+      budgetLimit: fc.monthlyAllowance,
+      savingsGoals: fc.savingsGoals,
+      recentTransactions: fc.recentTransactions.map((t) => ({
+        date: "Recent",
+        description: t.description,
+        amount: t.amount,
+        category: t.category,
+      })),
+    },
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ADVISOR CHAT — Full-page Coach with structured guidance
+// ADVISOR CHAT — Full-page Coach with structured guidance (IBM Bob)
 // ─────────────────────────────────────────────────────────────────────────────
 export async function askCoach(params: {
   message: string;
   chatHistory: Array<{ role: "user" | "model"; parts: string }>;
-  preferredLanguage: "en" | "hi" | "mr";
+  preferredLanguage?: "en" | "hi" | "mr";
   financialContext: {
     remainingBudget: number;
     monthlyAllowance: number;
@@ -505,45 +449,54 @@ export async function askCoach(params: {
     recentTransactions: Array<{ description: string; amount: number; category: string }>;
   };
 }): Promise<string> {
-  const { message, chatHistory, preferredLanguage, financialContext: fc } = params;
+  const { message, chatHistory, financialContext: fc } = params;
 
-  const heuristic = () =>
-    `Here are three evidence-based tips:\n1. Track every rupee — even small amounts compound into big leakages.\n2. Allocate your allowance on Day 1: 50% needs, 30% wants, 20% savings.\n3. Check the National Scholarship Portal — most students miss schemes they're fully eligible for.`;
+  if (genAI) {
+    try {
+      const model = genAI.getGenerativeModel({
+        model: "gemini-2.5-flash",
+        systemInstruction: `${ADVISOR_COACH_SYSTEM_PROMPT}
 
-  if (!genAI) return heuristic();
-
-  try {
-    const langNote =
-      preferredLanguage === "hi"
-        ? "Respond entirely in Hindi (Devanagari script)."
-        : preferredLanguage === "mr"
-        ? "Respond entirely in Marathi (Devanagari script)."
-        : "Respond in English.";
-
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      systemInstruction: `${ADVISOR_COACH_SYSTEM_PROMPT}
-${langNote}
 Financial context:
 - Remaining budget: ₹${fc.remainingBudget.toFixed(0)}
 - Monthly allowance: ₹${fc.monthlyAllowance.toFixed(0)}
 - Spent this month: ₹${fc.totalSpentThisMonth.toFixed(0)}
 - Daily burn rate: ₹${fc.dailyBurnRate.toFixed(0)}/day
 - Goals: ${fc.savingsGoals.map((g) => `${g.name} (₹${g.current}/₹${g.target})`).join(", ") || "None"}`,
-    });
+      });
 
-    const chat = model.startChat({
-      history: chatHistory.map((h) => ({
-        role: h.role,
-        parts: [{ text: h.parts }],
-      })),
-    });
-    const result = await chat.sendMessage(message);
-    return result.response.text().trim() || heuristic();
-  } catch (err) {
-    console.warn("askCoach: Gemini failed, using heuristics.", err);
-    return heuristic();
+      const chat = model.startChat({
+        history: chatHistory.map((h) => ({
+          role: h.role,
+          parts: [{ text: h.parts }],
+        })),
+      });
+      const result = await chat.sendMessage(message);
+      const output = result.response.text().trim();
+      if (output) return output;
+    } catch (err) {
+      console.warn("askCoach: live call failed, using IBM Bob engine:", err);
+    }
   }
+
+  // Use IBM Bob AI financial intelligence engine
+  return askIBMBob({
+    message,
+    financialContext: {
+      liquidBalance: fc.remainingBudget,
+      monthlyIncome: fc.monthlyAllowance,
+      totalSpentThisMonth: fc.totalSpentThisMonth,
+      dailyBurnRate: fc.dailyBurnRate,
+      budgetLimit: fc.monthlyAllowance,
+      savingsGoals: fc.savingsGoals,
+      recentTransactions: fc.recentTransactions.map((t) => ({
+        date: "Recent",
+        description: t.description,
+        amount: t.amount,
+        category: t.category,
+      })),
+    },
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
