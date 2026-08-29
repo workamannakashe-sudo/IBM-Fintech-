@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useFinancial } from "../context/FinancialContext";
 import { askBob } from "../services/gemini";
+import { askIBMBob } from "../services/ibmBob";
 import { supabase, isSupabaseConfigured } from "../utils/supabase/client";
 import { MessageSquare, X, Send, Sparkles, User } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -102,11 +103,30 @@ export const BobChatWidget: React.FC<BobChatWidgetProps> = ({ setActiveTab }) =>
       }));
 
     try {
-      const responseText = await askBob({
+      // Primary: IBM Bob watsonx service with provided bob_prod API key
+      const responseText = await askIBMBob({
         message: textToSend,
-        chatHistory,
-        preferredLanguage,
-        financialContext,
+        financialContext: {
+          liquidBalance: financialContext.remainingBudget,
+          monthlyIncome: financialContext.monthlyAllowance,
+          totalSpentThisMonth: financialContext.totalSpentThisMonth,
+          dailyBurnRate: financialContext.dailyBurnRate,
+          budgetLimit: financialContext.monthlyAllowance,
+          savingsGoals: financialContext.savingsGoals,
+          recentTransactions: transactions.slice(0, 5).map(t => ({
+            date: t.date,
+            description: t.description,
+            amount: t.amount,
+            category: t.category,
+          })),
+        },
+      }).catch(async () => {
+        return await askBob({
+          message: textToSend,
+          chatHistory,
+          preferredLanguage,
+          financialContext,
+        });
       });
 
       const bobMsg: Message = {
@@ -119,7 +139,7 @@ export const BobChatWidget: React.FC<BobChatWidgetProps> = ({ setActiveTab }) =>
       const errMsg: Message = {
         id: Math.random().toString(36).substring(2, 9),
         sender: "bob",
-        text: "Sorry, I had trouble connecting. Check your API key in settings, or try again!",
+        text: "I'm having a momentary connection issue. Feel free to re-ask or check your network!",
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, errMsg]);

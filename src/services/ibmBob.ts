@@ -1,13 +1,13 @@
 // IBM Bob AI Chatbot Service (ibmBob.ts)
-// Integrates with IBM watsonx Assistant using the bob_prod API key
+// Integrates with IBM watsonx Assistant using the provided bob_prod API key
 
-const IBM_BOB_API_KEY = import.meta.env.VITE_IBM_BOB_API_KEY || "";
+const IBM_BOB_API_KEY =
+  import.meta.env.VITE_IBM_BOB_API_KEY ||
+  "bob_prod_bob-apikey_5KsiHEKrF4f2Y2yLzNxojz21NG2aVMsTwojK625Wnh2xKy5tKpPptFRgfKRn3E5bdoqi5PH9RHkQRtULP4jYukB2_Fe3UGHWhW1RKYNa2aDBKcDA5hV6rsRoDoUCH5S91DqRE";
 
-// IBM Bob endpoint — stateless message API (no session required)
-// The key format "bob_prod_bob-apikey_..." is an IBM Bob production key.
-// We POST to the IBM Bob message endpoint with Basic auth (apikey: KEY).
+// IBM Bob endpoint — stateless message API
 const IBM_BOB_BASE_URL = "https://api.us-south.assistant.watson.cloud.ibm.com";
-const IBM_BOB_ASSISTANT_ID = "bob_prod"; // Derived from key prefix
+const IBM_BOB_ASSISTANT_ID = "bob_prod";
 const IBM_BOB_VERSION = "2024-08-25";
 
 interface BobMessage {
@@ -27,23 +27,23 @@ interface BobFinancialContext {
 
 /**
  * Build a system context string to inject into the Bob message
- * so Bob is grounded in the user's real financial data.
+ * so Bob is grounded in the student's real financial data.
  */
 function buildFinancialContext(ctx: BobFinancialContext): string {
   const goalsSummary = ctx.savingsGoals.length > 0
-    ? ctx.savingsGoals.map(g => `${g.name} (saved $${g.current.toFixed(0)} of $${g.target.toFixed(0)})`).join(", ")
+    ? ctx.savingsGoals.map(g => `${g.name} (saved ₹${g.current.toFixed(0)} of ₹${g.target.toFixed(0)})`).join(", ")
     : "No active savings goals";
 
   const txSummary = ctx.recentTransactions.length > 0
-    ? ctx.recentTransactions.slice(0, 5).map(t => `${t.date}: ${t.description} $${t.amount.toFixed(2)} [${t.category}]`).join("; ")
+    ? ctx.recentTransactions.slice(0, 5).map(t => `${t.date}: ${t.description} ₹${t.amount.toFixed(0)} [${t.category}]`).join("; ")
     : "No recent transactions";
 
-  return `[Student Financial Profile]
-Liquid Balance: $${ctx.liquidBalance.toFixed(2)}
-Monthly Allowance: $${ctx.monthlyIncome.toFixed(2)}
-Spent This Month: $${ctx.totalSpentThisMonth.toFixed(2)}
-Daily Burn Rate: $${ctx.dailyBurnRate.toFixed(2)}/day
-Budget Limit: $${ctx.budgetLimit.toFixed(2)}
+  return `[Student Financial Profile — BudgetMitra]
+Remaining Balance: ₹${ctx.liquidBalance.toFixed(0)}
+Monthly Allowance: ₹${ctx.monthlyIncome.toFixed(0)}
+Spent This Month: ₹${ctx.totalSpentThisMonth.toFixed(0)}
+Daily Burn Rate: ₹${ctx.dailyBurnRate.toFixed(0)}/day
+Budget Limit: ₹${ctx.budgetLimit.toFixed(0)}
 Savings Goals: ${goalsSummary}
 Recent Transactions: ${txSummary}`;
 }
@@ -57,41 +57,41 @@ function getHeuristicResponse(
 ): string {
   const lower = message.toLowerCase();
 
-  if (lower.includes("burn rate") || lower.includes("burn") || lower.includes("velocity")) {
+  if (lower.includes("burn rate") || lower.includes("burn") || lower.includes("pace")) {
     const projected = ctx.dailyBurnRate * 30;
     const exceeded = projected > ctx.budgetLimit;
-    return `Your daily burn rate is **$${ctx.dailyBurnRate.toFixed(2)}/day**. At this pace, you'll spend $${projected.toFixed(2)} this month vs your $${ctx.budgetLimit.toFixed(2)} limit. ${exceeded ? `⚠️ You may exceed your budget — consider cutting discretionary spending!` : `✅ You're pacing well within your budget.`}`;
+    return `Your daily burn rate is **₹${ctx.dailyBurnRate.toFixed(0)}/day**. At this pace, you'll spend ₹${projected.toFixed(0)} this month vs your ₹${ctx.budgetLimit.toFixed(0)} allowance. ${exceeded ? `⚠️ You may exceed your budget — consider cutting discretionary spending!` : `✅ You're pacing well within your budget.`}`;
   }
 
   if (lower.includes("afford") || lower.includes("buy") || lower.includes("purchase")) {
-    const amtMatch = message.match(/\$?(\d+(\.\d{1,2})?)/);
-    const price = amtMatch ? parseFloat(amtMatch[1]) : 50;
+    const amtMatch = message.match(/\$?₹?(\d+(\.\d{1,2})?)/);
+    const price = amtMatch ? parseFloat(amtMatch[1]) : 500;
     if (price > ctx.liquidBalance) {
-      return `⚠️ **Verdict: NO** — That $${price} purchase would overdraft your available balance of $${ctx.liquidBalance.toFixed(2)}. Hold off for now!`;
-    } else if (price > ctx.liquidBalance - 200) {
-      return `⚠️ **Verdict: CAUTION** — You can technically afford $${price}, but it'll leave you with less than $200 cushion. Think it over!`;
+      return `⚠️ **Verdict: NO** — That ₹${price} purchase would exceed your remaining balance of ₹${ctx.liquidBalance.toFixed(0)}. Hold off for now!`;
+    } else if (price > ctx.liquidBalance - 1000) {
+      return `⚠️ **Verdict: CAUTION** — You can technically afford ₹${price}, but it'll leave you with less than ₹1,000 cushion. Think it over!`;
     }
-    return `✅ **Verdict: YES** — $${price} fits comfortably in your $${ctx.liquidBalance.toFixed(2)} available balance. Go for it!`;
+    return `✅ **Verdict: YES** — ₹${price} fits comfortably in your ₹${ctx.liquidBalance.toFixed(0)} available budget. Go for it!`;
   }
 
   if (lower.includes("loan") || lower.includes("emi") || lower.includes("interest")) {
-    return `💡 Adding just **$50 extra/month** to your student loan can slash months off your repayment and save hundreds in interest. Check the **Loans** tab to model different scenarios!`;
+    return `💡 Check the **Loan & EMI** tab to model education loan payoffs and compare simple vs subsidized interest rates!`;
   }
 
-  if (lower.includes("scholarship") || lower.includes("grant") || lower.includes("aid")) {
-    return `🎓 Head to the **Scholarships** tab to see matched opportunities based on your academic profile, with match probabilities and deadline calendars!`;
+  if (lower.includes("scholarship") || lower.includes("grant") || lower.includes("scheme")) {
+    return `🎓 Head to the **Schemes** tab! Bob has filtered real Indian government scholarships (PMSS, CSSS, Tata Scholarship) matching your course and income category.`;
   }
 
-  if (lower.includes("budget") || lower.includes("spending")) {
+  if (lower.includes("budget") || lower.includes("save") || lower.includes("spending")) {
     const remaining = ctx.budgetLimit - ctx.totalSpentThisMonth;
-    return `📊 You've spent **$${ctx.totalSpentThisMonth.toFixed(2)}** this month out of your **$${ctx.budgetLimit.toFixed(2)}** budget. You have **$${remaining.toFixed(2)} remaining** — ${remaining < 0 ? "⚠️ you're over budget!" : "keep it up!"}`;
+    return `📊 You've spent **₹${ctx.totalSpentThisMonth.toFixed(0)}** this month out of your **₹${ctx.budgetLimit.toFixed(0)}** budget. You have **₹${remaining.toFixed(0)} remaining** — ${remaining < 0 ? "⚠️ you're over budget!" : "keep up the disciplined spending!"}`;
   }
 
   const tips = [
-    `💰 Your liquid balance is **$${ctx.liquidBalance.toFixed(2)}**. Try logging every expense to stay aware of your daily burn rate of $${ctx.dailyBurnRate.toFixed(2)}/day.`,
-    `🎯 Tip: Automating 10% of your allowance into savings as soon as it arrives is one of the most effective budgeting habits. Want help setting a goal?`,
-    `📈 Hitting a 7-day expense logging streak earns you bonus XP and keeps your financial awareness sharp. Keep it up!`,
-    `Hey! I'm Bob, your IBM-powered financial buddy. Ask me things like "Can I afford $80 sneakers?" or "How's my burn rate?"`,
+    `💰 Your remaining budget is **₹${ctx.liquidBalance.toFixed(0)}**. Log every expense to keep your daily burn rate of ₹${ctx.dailyBurnRate.toFixed(0)}/day accurate.`,
+    `🎯 Tip: Automating 10% of your allowance (₹${(ctx.monthlyIncome * 0.1).toFixed(0)}) into savings on Day 1 is the easiest way to fund your goals!`,
+    `📈 Check the 48-hour rule: wait 2 days before buying anything non-essential over ₹500. It eliminates 80% of impulse buys.`,
+    `Hey! I'm Bob, your IBM-powered AI financial co-pilot. Ask me things like "Can I afford ₹2,000 headphones?" or "How's my burn rate?"`,
   ];
   return tips[Math.floor(Math.random() * tips.length)];
 }
