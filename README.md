@@ -6,6 +6,7 @@
 
 **Next-Generation AI Financial Intelligence, Budget Envelopes, Loan Amortization, and Group Expense Management for College Students.**
 
+[![Live Deployment](https://img.shields.io/badge/Live%20Demo-ibm--fintech.vercel.app-7928CA?style=for-the-badge&logo=vercel)](https://ibm-fintech.vercel.app/)
 [![Build Status](https://img.shields.io/badge/Build-Passing-emerald?style=for-the-badge&logo=vite)](https://github.com/workamannakashe-sudo/IBM-Fintech-)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict%20Mode-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 [![Tests](https://img.shields.io/badge/Tests-51%2F51%20Passing-brightgreen?style=for-the-badge&logo=vitest)](https://vitest.dev/)
@@ -13,9 +14,16 @@
 [![Tailwind CSS](https://img.shields.io/badge/TailwindCSS-v4-38bdf8?style=for-the-badge&logo=tailwindcss)](https://tailwindcss.com/)
 [![Track](https://img.shields.io/badge/Track-Student%20AI%20Track%3A%20Financial%20Literacy-orange?style=for-the-badge)](https://cloud.ibm.com)
 
-[Live Demo](#-developer-quickstart) • [Problem & Solution](#-the-problem--our-solution) • [Feature Catalog](#-feature-showcase) • [AI Grounding Architecture](#-ai-intelligence--dual-engine-architecture) • [Design System](#-design-system--dark-mode-excellence) • [Security](#-enterprise-security--privacy) • [Test Suite](#-automated-testing-suite) • [Judging Criteria](#-hackathon-judging-matrix)
+[🌐 **Live Web Application**](https://ibm-fintech.vercel.app/) • [Problem & Solution](#-the-problem--our-solution) • [Feature Catalog](#-feature-showcase) • [AI Grounding Architecture](#-ai-intelligence--dual-engine-architecture) • [Design System](#-design-system--dark-mode-excellence) • [Security](#-enterprise-security--privacy) • [Test Suite](#-automated-testing-suite) • [Judging Criteria](#-hackathon-judging-matrix)
 
 </div>
+
+---
+
+## 🚀 Live Demo & Deployment
+
+> **Production URL**: **[https://ibm-fintech.vercel.app/](https://ibm-fintech.vercel.app/)**  
+> Experience the fully functional AI financial assistant, live budget envelopes, loan simulator, and group bill split hub directly in your browser. Fully optimized for both desktop and mobile devices.
 
 ---
 
@@ -251,7 +259,9 @@ npm run test:watch
 
 ---
 
-## 💻 Developer Quickstart
+## 💻 Developer Quickstart & Live App
+
+> 🌐 **Try it Live**: **[https://ibm-fintech.vercel.app/](https://ibm-fintech.vercel.app/)**
 
 ### Prerequisites:
 - Node.js >= 18.0.0
@@ -298,6 +308,7 @@ npm run build
 <div align="center">
 
 **BudgetMitra** — Built with ❤️ for Students Worldwide  
+**Live Production App**: [https://ibm-fintech.vercel.app/](https://ibm-fintech.vercel.app/)  
 *SkillUp Hackathon × IBM SkillsBuild · Student AI Track: Financial Literacy*
 
 </div>
