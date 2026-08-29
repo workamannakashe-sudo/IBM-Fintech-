@@ -1,12 +1,12 @@
-// FinWise Universal Sticky Top Navigation (Navbar.tsx)
+// BudgetMitra Universal Sticky Top Navigation (Navbar.tsx)
 import React, { useState } from "react";
 import { useFinancial } from "../context/FinancialContext";
 import { useGamification } from "../context/GamificationContext";
 import { APPS_SCRIPT_TEMPLATE } from "../services/sheetsSync";
 import { 
-  Coins, LayoutDashboard, ReceiptText, ShieldQuestion, 
+  Wallet, LayoutDashboard, ReceiptText, ShieldQuestion, 
   Percent, GraduationCap, CalendarHeart, 
-  RotateCcw, ChevronDown, Sliders, Settings2, FileCode, Check, PiggyBank, LogOut, Bot 
+  RotateCcw, ChevronDown, Sliders, Settings2, FileCode, Check, LogOut, Bot, Globe 
 } from "lucide-react";
 
 interface NavbarProps {
@@ -22,11 +22,12 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
     userType,
     syncUrl,
     setCurrency,
-    setUserType,
     setSyncUrl,
     isGuest,
     logout,
-    supabaseStatus
+    supabaseStatus,
+    preferredLanguage,
+    setPreferredLanguage,
   } = useFinancial();
 
   const { level, resetGamification } = useGamification();
@@ -56,12 +57,12 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
   const tabs = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "expenses", label: "Expenses", icon: ReceiptText },
-    { id: "affordability", label: "Affordability Check", icon: ShieldQuestion },
-    { id: "loans", label: "Loan & EMI", icon: Percent },
-    { id: "scholarships", label: userType === "Student" ? "Scholarships" : "Savings Advisor", icon: userType === "Student" ? GraduationCap : PiggyBank },
+    { id: "affordability", label: "Can I Afford?", icon: ShieldQuestion },
+    { id: "scholarships", label: "Schemes", icon: GraduationCap },
     { id: "advisor", label: "AI Advisor", icon: Bot },
+    { id: "loans", label: "Loan & EMI", icon: Percent },
     { id: "budget", label: "Budget & Goals", icon: Sliders },
-    { id: "habits", label: "Habits/Gamification", icon: CalendarHeart },
+    { id: "habits", label: "Habits", icon: CalendarHeart },
   ];
 
   const handleReset = () => {
@@ -84,13 +85,13 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between gap-4">
           
-          {/* Logo Brand Identity */}
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveTab("dashboard")}>
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-teal text-white shadow-sm">
-              <Coins className="h-5 w-5" />
+          {/* Brand Logo */}
+          <div className="flex items-center gap-2 cursor-pointer shrink-0" onClick={() => setActiveTab("dashboard")}>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 text-white shadow-sm">
+              <Wallet className="h-5 w-5" />
             </div>
             <span className="font-display text-xl font-bold tracking-tight text-slate-900">
-              FinWise
+              Budget<span className="text-orange-500">Mitra</span>
             </span>
           </div>
 
@@ -116,6 +117,27 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
                 );
               })}
             </div>
+          </div>
+
+          {/* Inline Language Selector for IBM Bob */}
+          <div className="hidden sm:flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl border border-slate-200/80">
+            {([
+              { code: "en" as const, label: "EN" },
+              { code: "hi" as const, label: "हिन्दी" },
+              { code: "mr" as const, label: "मराठी" },
+            ]).map(({ code, label }) => (
+              <button
+                key={code}
+                onClick={() => setPreferredLanguage(code)}
+                className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
+                  preferredLanguage === code
+                    ? "bg-orange-500 text-white shadow-sm"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
           {/* User Profile & Config Menu */}
@@ -161,9 +183,36 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
                 {/* Settings Configuration panel */}
                 <div className="space-y-3 pt-1">
                   <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                    <Settings2 className="h-3.5 w-3.5 text-brand-teal" />
-                    Localization Preferences
+                    <Settings2 className="h-3.5 w-3.5 text-orange-500" />
+                    Preferences & Localization
                   </h4>
+
+                  {/* ─── Language Toggle (IBM Bob Language) ─── */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs text-slate-600 font-semibold flex items-center gap-1">
+                      <Globe className="h-3 w-3 text-orange-400" />
+                      Bob's Language
+                    </label>
+                    <div className="flex gap-1.5">
+                      {([
+                        { code: "en", label: "EN" },
+                        { code: "hi", label: "हिन्दी" },
+                        { code: "mr", label: "मराठी" },
+                      ] as const).map(({ code, label }) => (
+                        <button
+                          key={code}
+                          onClick={() => setPreferredLanguage(code)}
+                          className={`flex-1 rounded-lg py-1.5 text-xs font-bold border transition-all ${
+                            preferredLanguage === code
+                              ? "bg-orange-500 text-white border-orange-500 shadow-sm"
+                              : "bg-slate-50 text-slate-600 border-slate-200 hover:border-orange-300"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
                   {/* Currency selector */}
                   <div className="grid grid-cols-2 gap-3 items-center">
@@ -171,26 +220,14 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
                     <select
                       value={currency}
                       onChange={(e) => setCurrency(e.target.value as "USD" | "INR")}
-                      className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs focus:outline-none focus:border-brand-teal font-bold"
+                      className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs focus:outline-none focus:border-orange-400 font-bold"
                     >
                       <option value="INR">INR (₹)</option>
                       <option value="USD">USD ($)</option>
                     </select>
                   </div>
-
-                  {/* Profile type selector */}
-                  <div className="grid grid-cols-2 gap-3 items-center">
-                    <label className="text-xs text-slate-600 font-semibold">User Segment</label>
-                    <select
-                      value={userType}
-                      onChange={(e) => setUserType(e.target.value as "Student" | "Professional")}
-                      className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs focus:outline-none focus:border-brand-teal font-bold"
-                    >
-                      <option value="Student">Student Mode</option>
-                      <option value="Professional">Young Pro Mode</option>
-                    </select>
-                  </div>
                 </div>
+
 
                 {/* Supabase Status Integration */}
                 <div className="space-y-2 pt-2 border-t border-slate-100">

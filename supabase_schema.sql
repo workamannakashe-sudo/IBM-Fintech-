@@ -1,108 +1,123 @@
 -- ==========================================
--- FinWise Supabase Database Schema
--- Run this script in your Supabase SQL Editor
+-- BudgetMitra Supabase Database Schema
+-- Run this entire script in your Supabase SQL Editor
 -- ==========================================
 
--- 1. Create Profiles Table (linked to Supabase Auth users)
+-- 1. Profiles Table (extends auth.users)
 CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    name TEXT NOT NULL,
-    user_type TEXT DEFAULT 'Student' CHECK (user_type IN ('Student', 'Professional')),
-    currency TEXT DEFAULT 'INR' CHECK (currency IN ('USD', 'INR')),
-    major TEXT,
-    gpa NUMERIC,
-    academic_year TEXT,
-    income_tier TEXT,
-    first_gen BOOLEAN DEFAULT FALSE,
-    interests TEXT[] DEFAULT '{}',
+    full_name TEXT,
+    course TEXT,          -- e.g. 'B.Tech', 'B.Sc', 'B.Com', 'MBA'
+    year INTEGER,         -- 1 to 4+
+    state TEXT,           -- Indian state name e.g. 'Maharashtra'
+    income_bracket TEXT CHECK (income_bracket IN ('below_1L','1-3L','3-8L','above_8L')),
+    category TEXT CHECK (category IN ('Gen','OBC','SC','ST','EWS')),
     monthly_allowance NUMERIC DEFAULT 0,
+    preferred_language TEXT DEFAULT 'en' CHECK (preferred_language IN ('en','hi','mr')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- 2. Create Transactions Table
+-- 2. Transactions Table
 CREATE TABLE IF NOT EXISTS public.transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-    date TEXT NOT NULL,
-    description TEXT NOT NULL,
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     amount NUMERIC NOT NULL,
-    category TEXT NOT NULL,
-    is_anomaly BOOLEAN DEFAULT FALSE,
-    anomaly_explanation TEXT,
+    category TEXT NOT NULL CHECK (category IN ('food','rent','books','travel','entertainment','other')),
+    description TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- 3. Create Savings Goals Table
-CREATE TABLE IF NOT EXISTS public.savings_goals (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-    name TEXT NOT NULL,
-    target NUMERIC NOT NULL,
-    current NUMERIC DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
-);
-
--- 4. Create Loans Table
-CREATE TABLE IF NOT EXISTS public.loans (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-    name TEXT NOT NULL,
-    principal NUMERIC NOT NULL,
-    interest_rate NUMERIC NOT NULL,
-    term_months INTEGER NOT NULL,
-    extra_payment NUMERIC DEFAULT 0,
-    type TEXT NOT NULL CHECK (type IN ('Subsidized', 'Unsubsidized', 'Personal', 'Home')),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
-);
-
--- 5. Create Budgets Table
+-- 3. Monthly Budgets Table
 CREATE TABLE IF NOT EXISTS public.budgets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-    category TEXT NOT NULL,
-    limit_amount NUMERIC NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
-    UNIQUE (profile_id, category)
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    month DATE NOT NULL,   -- first day of the month e.g. 2026-08-01
+    category TEXT NOT NULL CHECK (category IN ('food','rent','books','travel','entertainment','other')),
+    limit_amount NUMERIC NOT NULL DEFAULT 0,
+    UNIQUE (user_id, month, category)
+);
+
+-- 4. Scholarship / Loan Schemes Table (public read, admin-only write)
+CREATE TABLE IF NOT EXISTS public.schemes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('scholarship', 'loan')),
+    authority TEXT,        -- e.g. 'Government of India', 'AICTE', 'State Govt - Maharashtra'
+    eligibility JSONB,     -- { "income_max": 300000, "category": ["SC","ST","OBC"], "state": "all", "course_type": ["B.Tech","B.Sc"] }
+    benefit TEXT,
+    apply_url TEXT,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
+-- 5. Chat Messages Table (Bob conversation history)
+CREATE TABLE IF NOT EXISTS public.chat_messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    role TEXT NOT NULL CHECK (role IN ('user', 'bob')),
+    content TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
 -- ==========================================
--- Enable Row Level Security (RLS) on all tables
+-- Enable Row Level Security (RLS)
 -- ==========================================
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.savings_goals ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.loans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.budgets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.schemes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
 
 -- ==========================================
--- Security Policies (Ensure users can only access their own records)
+-- Drop existing policies to allow re-running
 -- ==========================================
+DROP POLICY IF EXISTS "profiles_select" ON public.profiles;
+DROP POLICY IF EXISTS "profiles_insert" ON public.profiles;
+DROP POLICY IF EXISTS "profiles_update" ON public.profiles;
+DROP POLICY IF EXISTS "transactions_select" ON public.transactions;
+DROP POLICY IF EXISTS "transactions_insert" ON public.transactions;
+DROP POLICY IF EXISTS "transactions_update" ON public.transactions;
+DROP POLICY IF EXISTS "transactions_delete" ON public.transactions;
+DROP POLICY IF EXISTS "budgets_select" ON public.budgets;
+DROP POLICY IF EXISTS "budgets_insert" ON public.budgets;
+DROP POLICY IF EXISTS "budgets_update" ON public.budgets;
+DROP POLICY IF EXISTS "budgets_delete" ON public.budgets;
+DROP POLICY IF EXISTS "schemes_select" ON public.schemes;
+DROP POLICY IF EXISTS "chat_messages_select" ON public.chat_messages;
+DROP POLICY IF EXISTS "chat_messages_insert" ON public.chat_messages;
+DROP POLICY IF EXISTS "chat_messages_delete" ON public.chat_messages;
 
--- Profiles
-CREATE POLICY "Allow select for profile owner" ON public.profiles FOR SELECT USING (auth.uid() = id);
-CREATE POLICY "Allow insert for profile owner" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
-CREATE POLICY "Allow update for profile owner" ON public.profiles FOR UPDATE USING (auth.uid() = id);
+-- ==========================================
+-- Profiles Policies
+-- ==========================================
+CREATE POLICY "profiles_select" ON public.profiles FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "profiles_insert" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
+CREATE POLICY "profiles_update" ON public.profiles FOR UPDATE USING (auth.uid() = id);
 
--- Transactions
-CREATE POLICY "Allow select for transaction owner" ON public.transactions FOR SELECT USING (auth.uid() = profile_id);
-CREATE POLICY "Allow insert for transaction owner" ON public.transactions FOR INSERT WITH CHECK (auth.uid() = profile_id);
-CREATE POLICY "Allow update for transaction owner" ON public.transactions FOR UPDATE USING (auth.uid() = profile_id);
-CREATE POLICY "Allow delete for transaction owner" ON public.transactions FOR DELETE USING (auth.uid() = profile_id);
+-- ==========================================
+-- Transactions Policies
+-- ==========================================
+CREATE POLICY "transactions_select" ON public.transactions FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "transactions_insert" ON public.transactions FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "transactions_update" ON public.transactions FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "transactions_delete" ON public.transactions FOR DELETE USING (auth.uid() = user_id);
 
--- Savings Goals
-CREATE POLICY "Allow select for goal owner" ON public.savings_goals FOR SELECT USING (auth.uid() = profile_id);
-CREATE POLICY "Allow insert for goal owner" ON public.savings_goals FOR INSERT WITH CHECK (auth.uid() = profile_id);
-CREATE POLICY "Allow update for goal owner" ON public.savings_goals FOR UPDATE USING (auth.uid() = profile_id);
-CREATE POLICY "Allow delete for goal owner" ON public.savings_goals FOR DELETE USING (auth.uid() = profile_id);
+-- ==========================================
+-- Budgets Policies
+-- ==========================================
+CREATE POLICY "budgets_select" ON public.budgets FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "budgets_insert" ON public.budgets FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "budgets_update" ON public.budgets FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "budgets_delete" ON public.budgets FOR DELETE USING (auth.uid() = user_id);
 
--- Loans
-CREATE POLICY "Allow select for loan owner" ON public.loans FOR SELECT USING (auth.uid() = profile_id);
-CREATE POLICY "Allow insert for loan owner" ON public.loans FOR INSERT WITH CHECK (auth.uid() = profile_id);
-CREATE POLICY "Allow update for loan owner" ON public.loans FOR UPDATE USING (auth.uid() = profile_id);
-CREATE POLICY "Allow delete for loan owner" ON public.loans FOR DELETE USING (auth.uid() = profile_id);
+-- ==========================================
+-- Schemes Policy (Public Read — any authenticated user can view schemes)
+-- ==========================================
+CREATE POLICY "schemes_select" ON public.schemes FOR SELECT USING (auth.role() = 'authenticated');
 
--- Budgets
-CREATE POLICY "Allow select for budget owner" ON public.budgets FOR SELECT USING (auth.uid() = profile_id);
-CREATE POLICY "Allow insert for budget owner" ON public.budgets FOR INSERT WITH CHECK (auth.uid() = profile_id);
-CREATE POLICY "Allow update for budget owner" ON public.budgets FOR UPDATE USING (auth.uid() = profile_id);
-CREATE POLICY "Allow delete for budget owner" ON public.budgets FOR DELETE USING (auth.uid() = profile_id);
+-- ==========================================
+-- Chat Messages Policies
+-- ==========================================
+CREATE POLICY "chat_messages_select" ON public.chat_messages FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "chat_messages_insert" ON public.chat_messages FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "chat_messages_delete" ON public.chat_messages FOR DELETE USING (auth.uid() = user_id);

@@ -1,34 +1,81 @@
-// FinWise Impulse Purchase Affordability Simulator (Affordability.tsx)
+// BudgetMitra — "Can I Afford This?" Impulse Simulator (Affordability.tsx)
 import React, { useState } from "react";
 import { useFinancial } from "../context/FinancialContext";
-import { 
-  ShieldCheck, ShieldAlert, HelpCircle, 
-  Landmark, ShoppingBag, Lightbulb 
+import {
+  ShieldCheck, ShieldAlert, ShieldX, ShoppingBag,
+  Sparkles, Lightbulb, RefreshCw, IndianRupee, Globe
 } from "lucide-react";
-import { motion } from "motion/react";
-import { askAffordability } from "../services/gemini";
+import { motion, AnimatePresence } from "motion/react";
+import { askAffordabilityBob } from "../services/gemini";
+
+type BobDecision = "YES" | "CAUTION" | "NO";
+
+const CATEGORY_OPTIONS = [
+  { value: "food", label: "🍽️ Food & Dining" },
+  { value: "rent", label: "🏠 Rent & Accommodation" },
+  { value: "books", label: "📚 Books & Study Material" },
+  { value: "travel", label: "🚌 Travel & Commute" },
+  { value: "entertainment", label: "🎬 Entertainment" },
+  { value: "other", label: "🛍️ Shopping & Other" },
+];
+
+const QUICK_FILLS = [
+  { name: "New Smartphone", amount: 18999, category: "other" },
+  { name: "Zomato dinner order", amount: 650, category: "food" },
+  { name: "Engineering textbook", amount: 1200, category: "books" },
+  { name: "Weekend trip to Goa", amount: 8500, category: "travel" },
+  { name: "Netflix subscription", amount: 649, category: "entertainment" },
+  { name: "Gaming laptop", amount: 65000, category: "other" },
+];
+
+const verdictConfig = {
+  YES: {
+    icon: ShieldCheck,
+    bg: "bg-emerald-50",
+    border: "border-emerald-200",
+    text: "text-emerald-700",
+    badge: "bg-emerald-500",
+    label: "✅ YES — You Can Afford It",
+    glow: "shadow-emerald-100",
+  },
+  CAUTION: {
+    icon: ShieldAlert,
+    bg: "bg-amber-50",
+    border: "border-amber-200",
+    text: "text-amber-700",
+    badge: "bg-amber-500",
+    label: "⚠️ CAUTION — Think Twice",
+    glow: "shadow-amber-100",
+  },
+  NO: {
+    icon: ShieldX,
+    bg: "bg-rose-50",
+    border: "border-rose-200",
+    text: "text-rose-700",
+    badge: "bg-rose-500",
+    label: "🚫 NO — Don't Buy This Now",
+    glow: "shadow-rose-100",
+  },
+};
 
 export const Affordability: React.FC = () => {
-  const { profile, totalSpentThisMonth, goals } = useFinancial();
+  const { profile, totalSpentThisMonth, dailyBurnRate, goals, preferredLanguage } = useFinancial();
 
-  // Form states
   const [itemName, setItemName] = useState("");
   const [itemPrice, setItemPrice] = useState("");
-  const [itemCategory, setItemCategory] = useState("Shopping & Personal");
-  const [hasSimulated, setHasSimulated] = useState(false);
+  const [itemCategory, setItemCategory] = useState("other");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [aiResult, setAiResult] = useState<{
-    verdict: "YES" | "CAUTION" | "NO";
-    confidenceScore: number;
-    reason: string;
-    delayDays: number;
-    alternative: string;
+  const [result, setResult] = useState<{
+    decision: BobDecision;
+    reasoning: string;
+    suggested_action: string;
   } | null>(null);
 
-  // Constants
-  const liquidBalance = profile.monthlyAllowance - totalSpentThisMonth;
-  const activeGoal = goals[0]; // Primary target goal for delay comparison
+  const now = new Date();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const daysLeftInMonth = daysInMonth - now.getDate() + 1;
+  const liquidBalance = Math.max(0, profile.monthlyAllowance - totalSpentThisMonth);
 
   const handleSimulate = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -37,234 +84,211 @@ export const Affordability: React.FC = () => {
 
     setIsLoading(true);
     setError(null);
-    setHasSimulated(true);
+    setResult(null);
 
     try {
-      const res = await askAffordability({
+      const res = await askAffordabilityBob({
         itemName,
         itemPrice: price,
         itemCategory,
+        preferredLanguage,
         financialContext: {
-          liquidBalance,
-          monthlyIncome: profile.monthlyAllowance,
+          remainingBudgetThisMonth: liquidBalance,
+          daysLeftInMonth,
+          dailyBurnRate,
+          monthlyAllowance: profile.monthlyAllowance,
           totalSpentThisMonth,
-          dailyBurnRate: (profile.monthlyAllowance - totalSpentThisMonth) > 0 
-            ? (profile.monthlyAllowance - totalSpentThisMonth) / 30 
-            : 0,
-          savingsGoals: goals.map(g => ({ name: g.name, target: g.target, current: g.current }))
-        }
+          savingsGoals: goals.map(g => ({ name: g.name, target: g.target, current: g.current })),
+        },
       });
-      setAiResult(res);
+      setResult(res);
     } catch (err: any) {
-      console.error("Affordability check failed:", err);
-      setError("AI Affordability Check was unable to contact the advisor service. Please check your API key configuration or try again.");
+      setError("Bob couldn't respond. Check your API key in the settings drawer.");
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleQuickFill = (item: typeof QUICK_FILLS[0]) => {
+    setItemName(item.name);
+    setItemPrice(String(item.amount));
+    setItemCategory(item.category);
+    setResult(null);
+  };
+
+  const cfg = result ? verdictConfig[result.decision] : null;
+  const langLabel: Record<string, string> = { en: "EN", hi: "हिन्दी", mr: "मराठी" };
+  const currentLang = langLabel[preferredLanguage] || "EN";
+
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-      
-      {/* Title */}
+    <div className="space-y-6 animate-in fade-in duration-300">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-          "Can I Afford This?" Impulse Simulator
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-display flex items-center gap-2">
+          "Can I Afford This?" — IBM Bob Check
+          <span className="ml-auto flex items-center gap-1 text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded-full px-2.5 py-1">
+            <Globe className="h-3 w-3" /> {currentLang}
+          </span>
         </h1>
-        <p className="text-sm text-slate-500">
-          Simulate major discretionary purchases against active savings targets and liquid balances before committing cash.
+        <p className="text-sm text-slate-500 mt-0.5">
+          IBM Bob analyzes your remaining budget, daily burn rate, and savings goals to give you a real decision.
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        
-        {/* LEFT COLUMN: Input Form */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm flex flex-col justify-between">
-          <div className="space-y-4">
-            <h3 className="font-display text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
-              <ShoppingBag className="h-4.5 w-4.5 text-brand-teal" />
-              Purchase Details
-            </h3>
 
-            <div className="rounded-xl bg-slate-50 p-4 border border-slate-100 flex justify-between text-xs font-semibold text-slate-700">
-              <span>Current Cash Cushion:</span>
-              <span className={`font-bold ${liquidBalance > 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                ${liquidBalance.toFixed(2)}
-              </span>
+        {/* ─── LEFT: Input Panel ─── */}
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-5">
+          <h3 className="font-display text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+            <ShoppingBag className="h-4 w-4 text-orange-500" />
+            Purchase Details
+          </h3>
+
+          <div className="rounded-xl bg-slate-50 p-4 border border-slate-100 flex justify-between text-xs font-semibold text-slate-700">
+            <span>Remaining Budget This Month:</span>
+            <span className={`font-bold ${liquidBalance > 0 ? "text-emerald-600" : "text-rose-600"}`}>
+              ₹{liquidBalance.toLocaleString("en-IN")} ({daysLeftInMonth}d left)
+            </span>
+          </div>
+
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Quick Fill</p>
+            <div className="flex flex-wrap gap-1.5">
+              {QUICK_FILLS.map(item => (
+                <button key={item.name} onClick={() => handleQuickFill(item)}
+                  className="rounded-full border border-slate-200 bg-slate-50 hover:border-orange-300 hover:bg-orange-50 px-3 py-1 text-xs text-slate-600 font-medium transition-all">
+                  {item.name} · ₹{item.amount.toLocaleString("en-IN")}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <form onSubmit={handleSimulate} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5">What do you want to buy?</label>
+              <input
+                type="text" value={itemName} onChange={e => setItemName(e.target.value)}
+                placeholder="e.g. Gaming Laptop, Zomato dinner..."
+                required
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:border-orange-400 transition-colors"
+              />
             </div>
 
-            <form onSubmit={handleSimulate} className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">Item / Purchase Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g., Wireless Headset, Winter Coat"
-                  value={itemName}
-                  onChange={(e) => {
-                    setItemName(e.target.value);
-                    setHasSimulated(false);
-                  }}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs focus:outline-none focus:border-brand-teal transition-all"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">Price ($)</label>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5">Price (₹)</label>
+                <div className="relative">
+                  <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                   <input
-                    type="number"
-                    step="0.01"
-                    required
-                    min="0.01"
-                    placeholder="0.00"
-                    value={itemPrice}
-                    onChange={(e) => {
-                      setItemPrice(e.target.value);
-                      setHasSimulated(false);
-                    }}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs focus:outline-none focus:border-brand-teal transition-all"
+                    type="number" value={itemPrice} onChange={e => setItemPrice(e.target.value)}
+                    placeholder="0" required min="1"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:border-orange-400 transition-colors"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">Category</label>
-                  <select
-                    value={itemCategory}
-                    onChange={(e) => {
-                      setItemCategory(e.target.value);
-                      setHasSimulated(false);
-                    }}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs focus:outline-none focus:border-brand-teal transition-all"
-                  >
-                    <option value="Food & Dining">Food & Dining</option>
-                    <option value="Textbooks & Tuition">Textbooks & Tuition</option>
-                    <option value="Entertainment & Subscriptions">Entertainment & Subscriptions</option>
-                    <option value="Transportation">Transportation</option>
-                    <option value="Health & Wellness">Health & Wellness</option>
-                    <option value="Shopping & Personal">Shopping & Personal</option>
-                    <option value="Miscellaneous">Miscellaneous</option>
-                  </select>
-                </div>
               </div>
-
-              <button
-                type="submit"
-                disabled={!itemName.trim() || !itemPrice || isLoading}
-                className="w-full rounded-xl bg-brand-teal hover:bg-brand-teal-light text-white py-3.5 text-xs font-bold shadow-md shadow-teal-700/10 transition-all flex items-center justify-center"
-              >
-                {isLoading ? "Running AI Evaluation..." : "Run Affordability Check"}
-              </button>
-            </form>
-          </div>
-        </div>
-
-        {/* RIGHT COLUMN: Output Simulation Analysis */}
-        <div className="space-y-6">
-          {isLoading ? (
-            <div className="rounded-2xl border-2 border-dashed border-teal-200 bg-white p-12 text-center flex flex-col items-center justify-center h-full min-h-[300px]">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-brand-teal mb-4" />
-              <h4 className="text-sm font-bold text-slate-700">Analyzing Affordability...</h4>
-              <p className="text-xs text-slate-400 mt-1 max-w-[70%] mx-auto">
-                Our AI Advisor is reviewing your cushion cash, budgets, active savings targets, and monthly net savings rate.
-              </p>
-            </div>
-          ) : error ? (
-            <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center flex flex-col items-center justify-center h-full min-h-[300px]">
-              <ShieldAlert className="h-8 w-8 text-rose-500 mb-2" />
-              <h4 className="text-sm font-bold text-rose-800">Affordability Check Error</h4>
-              <p className="text-xs text-rose-700 mt-1 max-w-[80%] mx-auto mb-4">
-                {error}
-              </p>
-              <button
-                onClick={() => handleSimulate()}
-                className="rounded-xl bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 text-xs font-bold transition-all"
-              >
-                Retry Request
-              </button>
-            </div>
-          ) : !hasSimulated || !aiResult ? (
-            <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-white p-12 text-center flex flex-col items-center justify-center h-full min-h-[300px]">
-              <HelpCircle className="h-10 w-10 text-slate-300 mb-2" />
-              <h4 className="text-sm font-bold text-slate-700">Awaiting Simulator Metrics</h4>
-              <p className="text-xs text-slate-400 mt-1 max-w-[70%] mx-auto">
-                Fill in the item details to compute confidence indices, opportunity delays, and alternatives.
-              </p>
-            </div>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="space-y-6"
-            >
-              {/* Verdict Card */}
-              <div 
-                className={`rounded-2xl border p-6 shadow-sm ${
-                  aiResult.verdict === "YES"
-                    ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-                    : aiResult.verdict === "CAUTION"
-                    ? "bg-orange-50 border-orange-200 text-orange-800"
-                    : "bg-rose-50 border-rose-200 text-rose-800"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    {aiResult.verdict === "NO" ? (
-                      <ShieldAlert className="h-6 w-6 text-rose-500" />
-                    ) : (
-                      <ShieldCheck className={`h-6 w-6 ${aiResult.verdict === "YES" ? "text-emerald-500" : "text-orange-500"}`} />
-                    )}
-                    <h3 className="font-display text-lg font-bold">
-                      VERDICT: {aiResult.verdict}
-                    </h3>
-                  </div>
-                  <span className="text-xs font-bold uppercase tracking-wider">
-                    Score: {aiResult.confidenceScore}/100
-                  </span>
-                </div>
-                
-                <p className="text-xs leading-relaxed font-semibold">
-                  {aiResult.reason}
-                </p>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5">Category</label>
+                <select value={itemCategory} onChange={e => setItemCategory(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:outline-none focus:border-orange-400 transition-colors cursor-pointer">
+                  {CATEGORY_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
               </div>
+            </div>
 
-              {/* Opportunity Cost / Delay info */}
-              {activeGoal && (
-                <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
-                  <h3 className="font-display text-sm font-bold text-slate-800 uppercase tracking-wide mb-3 flex items-center gap-1.5">
-                    <Landmark className="h-4.5 w-4.5 text-slate-400" />
-                    Opportunity Delay Tracker
-                  </h3>
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-orange-600 font-bold text-sm">
-                      +{aiResult.delayDays}d
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-800 font-semibold leading-relaxed">
-                        Purchasing this delays your primary savings goal <span className="font-bold">"{activeGoal.name}"</span> by approximately <span className="text-orange-600 font-bold">{aiResult.delayDays} days</span>.
-                      </p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Based on current daily net saving velocity.</p>
-                    </div>
-                  </div>
-                </div>
-              )}
+            <button type="submit" disabled={isLoading || !itemName.trim() || !itemPrice}
+              className="w-full rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-white font-bold py-3.5 text-xs shadow-md shadow-orange-200 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5">
+              {isLoading
+                ? <><RefreshCw className="h-4 w-4 animate-spin" /> IBM Bob is reasoning...</>
+                : <><Sparkles className="h-4 w-4" /> Ask Bob ({currentLang})</>
+              }
+            </button>
+          </form>
 
-              {/* Smart Student Alternatives */}
-              <div className="rounded-2xl border border-amber-200/80 bg-amber-50/40 p-5 shadow-sm">
-                <h3 className="font-display text-sm font-bold text-amber-800 uppercase tracking-wide mb-3 flex items-center gap-1.5">
-                  <Lightbulb className="h-4.5 w-4.5 text-amber-500" />
-                  Smart Student Alternative
-                </h3>
-                <p className="text-xs text-amber-950 leading-relaxed font-medium">
-                  {aiResult.alternative}
-                </p>
-              </div>
-
-            </motion.div>
+          {error && (
+            <div className="flex items-center gap-2 rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-600">
+              <ShieldAlert className="h-4 w-4 shrink-0" />
+              {error}
+            </div>
           )}
         </div>
 
-      </div>
+        {/* ─── RIGHT: Bob's Result Panel ─── */}
+        <div className="flex flex-col gap-4">
+          <AnimatePresence mode="wait">
+            {!result && !isLoading && (
+              <motion.div key="empty"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="flex-1 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 flex flex-col items-center justify-center p-10 text-center gap-3 min-h-[300px]">
+                <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center">
+                  <Sparkles className="h-7 w-7 text-orange-400 animate-pulse" />
+                </div>
+                <p className="text-slate-500 text-sm font-medium">Enter a purchase above and let IBM Bob decide.</p>
+              </motion.div>
+            )}
 
+            {isLoading && (
+              <motion.div key="loading"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="flex-1 rounded-2xl border border-orange-100 bg-orange-50/60 flex flex-col items-center justify-center p-10 text-center gap-4 min-h-[300px]">
+                <div className="h-14 w-14 rounded-full bg-gradient-to-br from-orange-400 to-amber-400 flex items-center justify-center animate-pulse">
+                  <Sparkles className="h-7 w-7 text-white" />
+                </div>
+                <p className="text-orange-700 font-bold">IBM Bob is thinking...</p>
+              </motion.div>
+            )}
+
+            {result && cfg && (
+              <motion.div key="result"
+                initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                className={`flex-1 rounded-2xl border-2 ${cfg.border} ${cfg.bg} ${cfg.glow} shadow-lg p-6 space-y-4`}>
+                <div className="flex items-center gap-3">
+                  <div className={`h-12 w-12 rounded-2xl ${cfg.badge} flex items-center justify-center shadow-sm`}>
+                    <cfg.icon className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <p className={`text-lg font-extrabold font-display ${cfg.text}`}>{cfg.label}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{itemName} · ₹{parseFloat(itemPrice).toLocaleString("en-IN")}</p>
+                  </div>
+                </div>
+
+                <div className="rounded-xl bg-white/80 border border-white/60 p-4 space-y-2 backdrop-blur-sm">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                    <Sparkles className="h-3 w-3 text-orange-400" /> IBM Bob's Reasoning ({currentLang})
+                  </p>
+                  <p className="text-sm text-slate-700 leading-relaxed font-medium">{result.reasoning}</p>
+                </div>
+
+                <div className="rounded-xl bg-white/60 border border-white/40 p-3.5 flex gap-2.5">
+                  <Lightbulb className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Suggested Action</p>
+                    <p className="text-xs text-slate-600 leading-relaxed">{result.suggested_action}</p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* How Bob Works explainer */}
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">How IBM Bob Decides</p>
+            <ol className="space-y-1.5 text-xs text-slate-500">
+              {[
+                "Checks your remaining budget vs. the item price",
+                "Calculates days left in the month × daily burn rate",
+                "Assesses impact on your active savings goals",
+                "Outputs a decision + plain-language reasoning",
+              ].map((step, i) => (
+                <li key={i} className="flex items-start gap-2">
+                  <span className="h-4 w-4 rounded-full bg-orange-100 text-orange-600 font-bold text-[10px] flex items-center justify-center shrink-0 mt-px">{i + 1}</span>
+                  {step}
+                </li>
+              ))}
+            </ol>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

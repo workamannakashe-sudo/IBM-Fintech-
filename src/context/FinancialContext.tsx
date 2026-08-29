@@ -1,4 +1,4 @@
-// FinWise Financial Context Provider (FinancialContext.tsx)
+// BudgetMitra Financial Context Provider (FinancialContext.tsx)
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { autoCategorizeExpense, explainAnomaly } from "../services/gemini";
 import { calculateHealthScore } from "../utils/health";
@@ -24,6 +24,13 @@ export interface StudentProfile {
   firstGen: boolean;
   interests: string[];
   monthlyAllowance: number;
+  // BudgetMitra Indian student profile fields
+  course?: string;           // e.g. 'B.Tech', 'B.Sc'
+  year?: number;             // 1–4
+  state?: string;            // Indian state
+  income_bracket?: "below_1L" | "1-3L" | "3-8L" | "above_8L";
+  category?: "Gen" | "OBC" | "SC" | "ST" | "EWS";
+  preferred_language?: "en" | "hi" | "mr";
 }
 
 export interface SavingsGoal {
@@ -63,6 +70,8 @@ interface FinancialContextType {
   isAuthenticated: boolean;
   isGuest: boolean;
   supabaseStatus: "connected" | "local" | "syncing" | "error";
+  preferredLanguage: "en" | "hi" | "mr";
+  setPreferredLanguage: (lang: "en" | "hi" | "mr") => void;
   setBurnRateMultiplier: (val: number) => void;
   setCurrency: (curr: "USD" | "INR") => void;
   setUserType(type: "Student" | "Professional"): void;
@@ -96,6 +105,12 @@ const DEFAULT_PROFILE_EMPTY: StudentProfile = {
   firstGen: false,
   interests: [],
   monthlyAllowance: 0,
+  course: "",
+  year: 1,
+  state: "",
+  income_bracket: "1-3L",
+  category: "Gen",
+  preferred_language: "en",
 };
 
 const DEFAULT_BUDGETS_EMPTY: Record<string, number> = {
@@ -148,13 +163,19 @@ const SEED_TRANSACTIONS_USD_STUDENT: Transaction[] = [
 // INR Default Seed Data (Localizing to Indian Students)
 const DEFAULT_PROFILE_INR_STUDENT: StudentProfile = {
   name: "Rahul Sharma",
-  major: "Computer Science & FinTech",
+  major: "B.Tech Computer Science",
   gpa: 8.84, // CGPA format
   academicYear: "3rd Year",
   incomeTier: "Tier-2 Family Income",
   firstGen: true,
   interests: ["Software Engineering", "Chai debates", "Auto pooling research"],
   monthlyAllowance: 15000.0, // ₹15,000 allowance
+  course: "B.Tech",
+  year: 3,
+  state: "Maharashtra",
+  income_bracket: "1-3L",
+  category: "OBC",
+  preferred_language: "en",
 };
 
 const DEFAULT_BUDGETS_INR_STUDENT: Record<string, number> = {
@@ -430,6 +451,21 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const [supabaseStatus, setSupabaseStatus] = useState<"connected" | "local" | "syncing" | "error">("local");
 
+  // BudgetMitra: preferred language for IBM Bob responses
+  const [preferredLanguage, setPreferredLanguageState] = useState<"en" | "hi" | "mr">(() => {
+    return (localStorage.getItem("bm_preferred_language") as "en" | "hi" | "mr") || "en";
+  });
+
+  const setPreferredLanguage = (lang: "en" | "hi" | "mr") => {
+    setPreferredLanguageState(lang);
+    localStorage.setItem("bm_preferred_language", lang);
+    // Persist to Supabase profile
+    if (isSupabaseConfigured() && dbProfileId) {
+      supabase.from("profiles").update({ preferred_language: lang }).eq("id", dbProfileId)
+        .then(({ error }: any) => { if (error) console.warn("Language update failed:", error); });
+    }
+  };
+
   useEffect(() => {
     if ("Notification" in window && Notification.permission === "default") {
       Notification.requestPermission();
@@ -448,38 +484,26 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (profileErr) throw profileErr;
 
       if (!profileData) {
-        // If not present in DB, insert a new profile row using the registered info
+        // If not present in DB, insert a new profile row using the new BudgetMitra schema
         const defaultName = email.split("@")[0] || "User";
         const { data: newProfile, error: createErr } = await supabase
           .from("profiles")
           .insert({
             id: userId,
-            name: defaultName,
-            user_type: userType,
-            currency: currency,
-            major: userType === "Student" ? "Undeclared" : "Developer",
-            gpa: userType === "Student" ? 4.0 : 0,
-            academic_year: userType === "Student" ? "Freshman" : "Graduated",
-            income_tier: "Income Tier 1",
-            first_gen: false,
-            interests: [],
-            monthly_allowance: userType === "Student" ? 10000 : 50000
+            full_name: defaultName,
+            course: userType === "Student" ? "B.Tech" : "Professional",
+            year: userType === "Student" ? 1 : null,
+            state: "",
+            income_bracket: "1-3L",
+            category: "Gen",
+            monthly_allowance: userType === "Student" ? 10000 : 50000,
+            preferred_language: preferredLanguage,
           })
           .select()
           .single();
 
         if (createErr) throw createErr;
         profileData = newProfile;
-
-        // Initialize budgets in Supabase for this user
-        const seedBudgets = budgets;
-        await supabase.from("budgets").insert(
-          Object.entries(seedBudgets).map(([category, limit_amount]) => ({
-            profile_id: profileData.id,
-            category,
-            limit_amount
-          }))
-        );
 
         // AUTO-SEED DEMO DATA FOR RECRUITERS/JUDGES IF DEMO EMAIL
         if (email.endsWith("@finwise.com")) {
@@ -505,22 +529,19 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           // Upload seeds to Supabase
           await Promise.all([
             supabase.from("transactions").insert(tSeed.map(t => ({
-              profile_id: profileData.id,
-              date: t.date,
+              user_id: profileData!.id,
               description: t.description,
               amount: t.amount,
               category: t.category,
-              is_anomaly: t.isAnomaly,
-              anomaly_explanation: t.anomalyExplanation
             }))),
             supabase.from("savings_goals").insert(gSeed.map(g => ({
-              profile_id: profileData.id,
+              profile_id: profileData!.id,
               name: g.name,
               target: g.target,
               current: g.current
             }))),
             supabase.from("loans").insert(lSeed.map(l => ({
-              profile_id: profileData.id,
+              profile_id: profileData!.id,
               name: l.name,
               principal: l.principal,
               interest_rate: l.interestRate,
@@ -528,36 +549,39 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               extra_payment: l.extraPayment,
               type: l.type
             }))),
-            // Update budgets seed
+            // Seed budgets (new schema: user_id, month, category, limit_amount)
             supabase.from("budgets").upsert(Object.entries(bSeed).map(([category, limit_amount]) => ({
-              profile_id: profileData.id,
+              user_id: profileData!.id,
+              month: new Date().toISOString().split('T')[0].substring(0, 8) + '01',
               category,
               limit_amount
-            })), { onConflict: "profile_id,category" })
+            })), { onConflict: "user_id,month,category" })
           ]);
         }
       }
+
+      if (!profileData) return null;
 
       // Store dbProfileId
       setDbProfileId(profileData.id);
 
       // Fetch related data
       const [txRes, goalsRes, loansRes, budgetsRes] = await Promise.all([
-        supabase.from("transactions").select("*").eq("profile_id", profileData.id).order("date", { ascending: false }),
-        supabase.from("savings_goals").select("*").eq("profile_id", profileData.id),
-        supabase.from("loans").select("*").eq("profile_id", profileData.id),
-        supabase.from("budgets").select("*").eq("profile_id", profileData.id)
+        supabase.from("transactions").select("*").eq("user_id", profileData!.id).order("created_at", { ascending: false }),
+        supabase.from("savings_goals").select("*").eq("profile_id", profileData!.id),
+        supabase.from("loans").select("*").eq("profile_id", profileData!.id),
+        supabase.from("budgets").select("*").eq("user_id", profileData!.id)
       ]);
 
       if (txRes.data) {
         setTransactions(txRes.data.map((t: any) => ({
           id: t.id,
-          date: t.date,
+          date: t.created_at ? t.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
           description: t.description,
           amount: Number(t.amount),
           category: t.category,
-          isAnomaly: t.is_anomaly,
-          anomalyExplanation: t.anomaly_explanation
+          isAnomaly: false,
+          anomalyExplanation: undefined
         })));
       }
 
@@ -590,15 +614,26 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setBudgets(loadedBudgets);
       }
 
+      // Update preferred_language from Supabase profile
+      const dbLang = (profileData.preferred_language || "en") as "en" | "hi" | "mr";
+      setPreferredLanguageState(dbLang);
+      localStorage.setItem("bm_preferred_language", dbLang);
+
       setProfile({
-        name: profileData.name,
-        major: profileData.major || "",
+        name: profileData.full_name || profileData.name || "",
+        major: profileData.course || profileData.major || "",
         gpa: Number(profileData.gpa || 0),
-        academicYear: profileData.academic_year || "",
+        academicYear: profileData.academic_year || `Year ${profileData.year || 1}`,
         interests: profileData.interests || [],
-        incomeTier: profileData.income_tier || "",
+        incomeTier: profileData.income_tier || profileData.income_bracket || "",
         firstGen: profileData.first_gen || false,
-        monthlyAllowance: Number(profileData.monthly_allowance || 0)
+        monthlyAllowance: Number(profileData.monthly_allowance || 0),
+        course: profileData.course || profileData.major || "",
+        year: Number(profileData.year || 1),
+        state: profileData.state || "",
+        income_bracket: profileData.income_bracket || "1-3L",
+        category: profileData.category || "Gen",
+        preferred_language: dbLang,
       });
 
       return profileData.id;
@@ -655,8 +690,8 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             
             if ("Notification" in window && Notification.permission === "granted") {
               try {
-                new Notification("FinWise Real-Time Sync", {
-                  body: `Successfully linked and synced data from Supabase in real-time!`,
+                new Notification("BudgetMitra — IBM Bob Connected", {
+                  body: `Your data is synced with Supabase. Bob is ready to help!`,
                 });
               } catch (e) {
                 console.log("Notification blocked");
@@ -882,13 +917,10 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     if (isSupabaseConfigured() && dbProfileId) {
       supabase.from("transactions").insert({
-        profile_id: dbProfileId,
-        date: newTx.date,
+        user_id: dbProfileId,
         description: newTx.description,
         amount: newTx.amount,
         category: newTx.category,
-        is_anomaly: newTx.isAnomaly,
-        anomaly_explanation: newTx.anomalyExplanation
       }).then(({ error }: any) => {
         if (error) console.error("Error inserting transaction to Supabase:", error);
       });
@@ -927,12 +959,10 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (isSupabaseConfigured() && dbProfileId) {
       supabase.from("transactions").insert(
         newTxs.map(tx => ({
-          profile_id: dbProfileId,
-          date: tx.date,
+          user_id: dbProfileId,
           description: tx.description,
           amount: tx.amount,
           category: tx.category,
-          is_anomaly: tx.isAnomaly
         }))
       ).then(({ error }: any) => {
         if (error) console.error("Error bulk inserting transactions to Supabase:", error);
@@ -953,19 +983,12 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setTransactions(prev => prev.filter(t => t.id !== id));
 
     if (isSupabaseConfigured() && dbProfileId && target) {
-      if (typeof id === "string" && id.includes("-")) {
-        supabase.from("transactions").delete().eq("id", id).then(({ error }: any) => {
+      // All IDs from Supabase are UUIDs (contain dashes)
+      supabase.from("transactions").delete().eq("id", id)
+        .eq("user_id", dbProfileId)
+        .then(({ error }: any) => {
           if (error) console.error("Error deleting transaction from Supabase:", error);
         });
-      } else {
-        supabase.from("transactions").delete()
-          .eq("profile_id", dbProfileId)
-          .eq("description", target.description)
-          .eq("amount", target.amount)
-          .then(({ error }: any) => {
-            if (error) console.error("Error deleting transaction from Supabase:", error);
-          });
-      }
     }
   };
 
@@ -973,11 +996,13 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setBudgets(prev => ({ ...prev, [category]: limit }));
 
     if (isSupabaseConfigured() && dbProfileId) {
+      const currentMonth = new Date().toISOString().substring(0, 8) + '01';
       supabase.from("budgets").upsert({
-        profile_id: dbProfileId,
+        user_id: dbProfileId,
+        month: currentMonth,
         category: category,
         limit_amount: limit
-      }, { onConflict: "profile_id,category" }).then(({ error }: any) => {
+      }, { onConflict: "user_id,month,category" }).then(({ error }: any) => {
         if (error) console.error("Error upserting budget in Supabase:", error);
       });
     }
@@ -1121,22 +1146,20 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // If Supabase is connected, clear tables and re-seed in DB
     if (isSupabaseConfigured() && dbProfileId) {
       setSupabaseStatus("syncing");
+      const currentMonth = new Date().toISOString().substring(0, 8) + '01';
       Promise.all([
-        supabase.from("transactions").delete().eq("profile_id", dbProfileId),
+        supabase.from("transactions").delete().eq("user_id", dbProfileId),
         supabase.from("savings_goals").delete().eq("profile_id", dbProfileId),
         supabase.from("loans").delete().eq("profile_id", dbProfileId),
-        supabase.from("budgets").delete().eq("profile_id", dbProfileId)
+        supabase.from("budgets").delete().eq("user_id", dbProfileId)
       ]).then(() => {
         // Upload seeds
         Promise.all([
           supabase.from("transactions").insert(tSeed.map(t => ({
-            profile_id: dbProfileId,
-            date: t.date,
+            user_id: dbProfileId,
             description: t.description,
             amount: t.amount,
             category: t.category,
-            is_anomaly: t.isAnomaly,
-            anomaly_explanation: t.anomalyExplanation
           }))),
           supabase.from("savings_goals").insert(gSeed.map(g => ({
             profile_id: dbProfileId,
@@ -1154,7 +1177,8 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             type: l.type
           }))),
           supabase.from("budgets").insert(Object.entries(bSeed).map(([category, limit_amount]) => ({
-            profile_id: dbProfileId,
+            user_id: dbProfileId,
+            month: currentMonth,
             category,
             limit_amount
           })))
@@ -1244,16 +1268,14 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
         const { error: profileErr } = await supabase.from("profiles").insert({
           id: data.user.id,
-          name: name || email.split("@")[0],
-          user_type: type,
-          currency: curr,
-          major: type === "Student" ? "Undeclared" : "Developer",
-          gpa: type === "Student" ? 4.0 : 0,
-          academic_year: type === "Student" ? "Freshman" : "Graduated",
-          income_tier: "Income Tier 1",
-          first_gen: false,
-          interests: [],
-          monthly_allowance: finalAllowance
+          full_name: name || email.split("@")[0],
+          course: type === "Student" ? "B.Tech" : "Professional",
+          year: type === "Student" ? 1 : null,
+          state: "",
+          income_bracket: "1-3L",
+          category: "Gen",
+          monthly_allowance: finalAllowance,
+          preferred_language: preferredLanguage,
         });
 
         if (profileErr) {
@@ -1355,6 +1377,8 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         isAuthenticated,
         isGuest,
         supabaseStatus,
+        preferredLanguage,
+        setPreferredLanguage,
         setBurnRateMultiplier,
         setCurrency,
         setUserType,

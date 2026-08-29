@@ -1,8 +1,10 @@
-// FinWise Floating AI Companion Chatbot Drawer (BobChatWidget.tsx)
+// BudgetMitra — IBM Bob Floating AI Companion Chat (BobChatWidget.tsx)
+// Persistent chat with IBM Bob, saves messages to Supabase chat_messages table.
 import React, { useState, useRef, useEffect } from "react";
 import { useFinancial } from "../context/FinancialContext";
 import { askBob } from "../services/gemini";
-import { MessageSquare, X, Send, Bot, Sparkles, User } from "lucide-react";
+import { supabase, isSupabaseConfigured } from "../utils/supabase/client";
+import { MessageSquare, X, Send, Sparkles, User } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 interface Message {
@@ -16,242 +18,269 @@ interface BobChatWidgetProps {
   setActiveTab: (tab: string) => void;
 }
 
+const LANG_LABEL: Record<string, string> = { en: "EN", hi: "हिन्दी", mr: "मराठी" };
+
+const getWelcomeMessage = (lang: string): string => {
+  if (lang === "hi") return "नमस्ते! मैं Bob हूँ — BudgetMitra का AI financial co-pilot। आपका बजट कैसा चल रहा है? कोई भी खर्च, scholarship, या loan के बारे में पूछ सकते हैं!";
+  if (lang === "mr") return "नमस्कार! मी Bob आहे — BudgetMitra चा AI financial co-pilot. तुमचं बजेट कसं चालू आहे? कोणताही खर्च, scholarship, किंवा loan बद्दल विचारा!";
+  return "Hey! I'm Bob 🤖 — BudgetMitra's IBM-powered AI co-pilot. I can check if you can afford something, find scholarships you qualify for, or explain any money concept. What's on your mind?";
+};
+
 export const BobChatWidget: React.FC<BobChatWidgetProps> = ({ setActiveTab }) => {
+  const {
+    profile, transactions, goals, dailyBurnRate, totalSpentThisMonth,
+    preferredLanguage, setPreferredLanguage,
+  } = useFinancial();
+
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "m0",
-      sender: "bob",
-      text: "Hey! I'm Bob, your campus financial buddy. Need to check if a purchase fits your budget, evaluate student loan terms, or find scholarships? Drop a question below!",
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const dbProfileId = typeof window !== "undefined" ? localStorage.getItem("fw_db_profile_id") : null;
 
-  const {
-    profile,
-    transactions,
-    goals,
-    dailyBurnRate,
-    totalSpentThisMonth,
-    budgets,
-  } = useFinancial();
-
-  // Scroll message feed to bottom on new updates
+  // Init welcome message based on language
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    setMessages([{
+      id: "m0", sender: "bob",
+      text: getWelcomeMessage(preferredLanguage),
+      timestamp: new Date(),
+    }]);
+  }, [preferredLanguage]);
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, isOpen]);
 
-  // Suggested shortcut pills
+  useEffect(() => {
+    if (isOpen) setTimeout(() => inputRef.current?.focus(), 100);
+  }, [isOpen]);
+
   const actionChips = [
-    { label: "🔥 How's my burn rate?", query: "How is my burn rate and spending velocity looking this month?" },
-    { label: "☕ Can I afford coffee?", query: "Can I afford coffee today?" },
-    { label: "🎓 Match scholarships", query: "Suggest a matching scholarship for me", redirect: "scholarships" },
-    { label: "💸 Accelerated loan payoff?", query: "How does paying an extra $50 a month affect my loan repayment?", redirect: "loans" },
+    { label: "🔥 Burn rate?", query: "How is my burn rate and spending this month?" },
+    { label: "💡 Save tips", query: "Give me 3 practical tips to save money this month." },
+    { label: "🎓 Scholarships?", query: "Which scholarships am I likely eligible for?", redirect: "scholarships" },
+    { label: "🤔 Can I buy phone?", query: "Can I afford to buy a new smartphone worth ₹18,000?" },
   ];
 
-  const handleSendMessage = async (textToSend: string, redirectTab?: string) => {
+  const persistToDB = async (role: "user" | "bob", content: string) => {
+    if (!isSupabaseConfigured() || !dbProfileId) return;
+    try {
+      await supabase.from("chat_messages").insert({
+        user_id: dbProfileId,
+        role,
+        content,
+      });
+    } catch (err) {
+      console.warn("Failed to persist chat message:", err);
+    }
+  };
+
+  const handleSend = async (textToSend: string, redirectTab?: string) => {
     if (!textToSend.trim()) return;
 
-    // 1. Add User Message
     const userMsg: Message = {
       id: Math.random().toString(36).substring(2, 9),
-      sender: "user",
-      text: textToSend,
-      timestamp: new Date(),
+      sender: "user", text: textToSend, timestamp: new Date(),
     };
-    setMessages((prev) => [...prev, userMsg]);
+    setMessages(prev => [...prev, userMsg]);
     setInputValue("");
     setLoading(true);
 
-    if (redirectTab) {
-      setActiveTab(redirectTab);
-    }
+    if (redirectTab) setActiveTab(redirectTab);
 
-    // 2. Format Context for Gemini
+    // Persist user message
+    persistToDB("user", textToSend);
+
     const financialContext = {
-      liquidBalance: profile.monthlyAllowance - totalSpentThisMonth, // Liquid cash cushion approximation
-      monthlyIncome: profile.monthlyAllowance,
+      remainingBudget: Math.max(0, profile.monthlyAllowance - totalSpentThisMonth),
+      monthlyAllowance: profile.monthlyAllowance,
       totalSpentThisMonth,
       dailyBurnRate,
-      budgetLimit: Object.values(budgets).reduce((sum, v) => sum + v, 0),
       savingsGoals: goals.map(g => ({ name: g.name, target: g.target, current: g.current })),
       recentTransactions: transactions.slice(0, 5).map(t => ({
-        date: t.date,
-        description: t.description,
-        amount: t.amount,
-        category: t.category,
+        description: t.description, amount: t.amount, category: t.category,
       })),
     };
 
-    // Format chat history into Gemini prompt structure
-    const chatHistory = messages.map((m) => ({
-      role: (m.sender === "user" ? "user" : "model") as "user" | "model",
-      parts: m.text,
-    }));
+    const chatHistory = messages
+      .filter(m => m.id !== "m0") // Skip welcome msg
+      .map(m => ({
+        role: (m.sender === "user" ? "user" : "model") as "user" | "model",
+        parts: m.text,
+      }));
 
     try {
       const responseText = await askBob({
         message: textToSend,
         chatHistory,
+        preferredLanguage,
         financialContext,
       });
 
       const bobMsg: Message = {
         id: Math.random().toString(36).substring(2, 9),
+        sender: "bob", text: responseText, timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, bobMsg]);
+      persistToDB("bob", responseText);
+    } catch (err) {
+      const errMsg: Message = {
+        id: Math.random().toString(36).substring(2, 9),
         sender: "bob",
-        text: responseText,
+        text: "Sorry, I had trouble connecting. Check your API key in settings, or try again!",
         timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, bobMsg]);
-    } catch (error) {
-      console.error(error);
+      setMessages(prev => [...prev, errMsg]);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(inputValue); }
+  };
+
+  const unreadCount = messages.filter(m => m.sender === "bob" && !isOpen).length;
+
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
-      {/* Expanded Chat Drawer */}
+    <>
+      {/* Floating Bob Toggle Button */}
+      <button
+        onClick={() => setIsOpen(prev => !prev)}
+        id="bob-chat-toggle"
+        className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 text-white shadow-xl shadow-orange-400/30 hover:from-orange-400 hover:to-amber-400 transition-all flex items-center justify-center active:scale-95"
+        aria-label="Open Bob Chat"
+      >
+        <AnimatePresence mode="wait">
+          {isOpen
+            ? <motion.div key="x" initial={{ rotate: -90, scale: 0 }} animate={{ rotate: 0, scale: 1 }} exit={{ rotate: 90, scale: 0 }}>
+                <X className="h-6 w-6" />
+              </motion.div>
+            : <motion.div key="chat" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
+                <MessageSquare className="h-6 w-6" />
+              </motion.div>
+          }
+        </AnimatePresence>
+        {!isOpen && unreadCount > 1 && (
+          <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center">
+            {Math.min(unreadCount, 9)}
+          </span>
+        )}
+      </button>
+
+      {/* Chat Panel */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 30, scale: 0.95 }}
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 30, scale: 0.95 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="mb-4 flex h-[500px] w-[360px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+            className="fixed bottom-24 right-6 z-50 w-80 sm:w-96 rounded-2xl border border-slate-200/80 bg-white shadow-2xl shadow-slate-200/60 flex flex-col overflow-hidden"
+            style={{ maxHeight: "520px" }}
           >
             {/* Header */}
-            <div className="flex items-center justify-between bg-brand-teal px-4 py-3.5 text-white">
-              <div className="flex items-center gap-2">
-                <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-teal-600/80">
-                  <Bot className="h-4.5 w-4.5" />
-                  <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-emerald-400 ring-2 ring-brand-teal" />
+            <div className="flex items-center justify-between bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-3">
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 rounded-xl bg-white/20 flex items-center justify-center">
+                  <Sparkles className="h-4 w-4 text-white" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold leading-none">Ask Bob</h4>
-                  <span className="text-[10px] text-teal-200">Personal AI Financial Coach</span>
+                  <p className="text-white font-bold text-sm leading-tight">IBM Bob</p>
+                  <p className="text-orange-100 text-[10px]">BudgetMitra AI Co-Pilot</p>
                 </div>
               </div>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="rounded-lg p-1 hover:bg-teal-800 transition-colors"
-              >
-                <X className="h-4.5 w-4.5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {/* Language toggle in chat header */}
+                <div className="flex gap-1">
+                  {(["en", "hi", "mr"] as const).map(lang => (
+                    <button key={lang} onClick={() => setPreferredLanguage(lang)}
+                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full transition-all ${
+                        preferredLanguage === lang
+                          ? "bg-white text-orange-600"
+                          : "text-white/70 hover:text-white"
+                      }`}>
+                      {LANG_LABEL[lang]}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={() => setIsOpen(false)} className="text-white/80 hover:text-white transition-colors">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
 
             {/* Message Feed */}
-            <div 
-              ref={scrollRef}
-              className="flex-1 overflow-y-auto bg-slate-50 p-4 space-y-3 scroll-smooth"
-            >
-              {messages.map((m) => {
-                const isUser = m.sender === "user";
-                return (
-                  <div
-                    key={m.id}
-                    className={`flex items-start gap-2 max-w-[85%] ${
-                      isUser ? "ml-auto flex-row-reverse" : "mr-auto"
-                    }`}
-                  >
-                    <div
-                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${
-                        isUser ? "bg-teal-100 text-teal-800" : "bg-teal-600 text-white"
-                      }`}
-                    >
-                      {isUser ? <User className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
-                    </div>
-                    <div
-                      className={`rounded-2xl px-3 py-2 text-xs leading-normal shadow-[0_1px_2px_rgba(0,0,0,0.02)] ${
-                        isUser
-                          ? "bg-brand-teal text-white rounded-tr-none"
-                          : "bg-white text-slate-800 rounded-tl-none border border-slate-100"
-                      }`}
-                    >
-                      {m.text}
-                    </div>
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-50/50 no-scrollbar">
+              {messages.map(msg => (
+                <div key={msg.id} className={`flex gap-2 ${msg.sender === "user" ? "flex-row-reverse" : ""}`}>
+                  <div className={`h-7 w-7 rounded-xl shrink-0 flex items-center justify-center ${
+                    msg.sender === "bob"
+                      ? "bg-gradient-to-br from-orange-400 to-amber-400 text-white"
+                      : "bg-slate-200 text-slate-600"
+                  }`}>
+                    {msg.sender === "bob" ? <Sparkles className="h-3.5 w-3.5" /> : <User className="h-3.5 w-3.5" />}
                   </div>
-                );
-              })}
+                  <div className={`max-w-[75%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed ${
+                    msg.sender === "bob"
+                      ? "bg-white border border-slate-100 text-slate-700 rounded-tl-sm shadow-sm"
+                      : "bg-orange-500 text-white rounded-tr-sm"
+                  }`}>
+                    {msg.text}
+                    <p className={`text-[9px] mt-1 ${msg.sender === "bob" ? "text-slate-400" : "text-orange-200"}`}>
+                      {msg.timestamp.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  </div>
+                </div>
+              ))}
               {loading && (
-                <div className="flex items-start gap-2 max-w-[80%] mr-auto">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-md bg-teal-600 text-white">
-                    <Bot className="h-3.5 w-3.5" />
+                <div className="flex gap-2">
+                  <div className="h-7 w-7 rounded-xl bg-gradient-to-br from-orange-400 to-amber-400 flex items-center justify-center shrink-0">
+                    <Sparkles className="h-3.5 w-3.5 text-white animate-pulse" />
                   </div>
-                  <div className="rounded-2xl rounded-tl-none border border-slate-100 bg-white px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
-                    <div className="flex items-center gap-1">
-                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.3s]" />
-                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.15s]" />
-                      <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" />
-                    </div>
+                  <div className="bg-white border border-slate-100 rounded-2xl rounded-tl-sm px-4 py-3 flex gap-1.5 items-center shadow-sm">
+                    {[0, 0.2, 0.4].map((d, i) => (
+                      <motion.div key={i} className="h-1.5 w-1.5 rounded-full bg-orange-400"
+                        animate={{ scale: [1, 1.5, 1] }}
+                        transition={{ duration: 0.6, repeat: Infinity, delay: d }} />
+                    ))}
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Quick Suggestions Pills */}
-            <div className="border-t border-slate-100 bg-white px-3 py-2">
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                Suggested Actions
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {actionChips.map((chip, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleSendMessage(chip.query, chip.redirect)}
-                    className="rounded-full border border-slate-200 hover:border-brand-teal hover:bg-teal-50 px-2.5 py-1 text-[10px] font-medium text-slate-600 hover:text-brand-teal transition-all select-none"
-                  >
-                    {chip.label}
-                  </button>
-                ))}
-              </div>
+            {/* Quick Chips */}
+            <div className="px-3 pt-2 flex gap-1.5 flex-wrap border-t border-slate-100 bg-white">
+              {actionChips.map(chip => (
+                <button key={chip.label} onClick={() => handleSend(chip.query, chip.redirect)}
+                  disabled={loading}
+                  className="rounded-full border border-slate-200 bg-slate-50 hover:border-orange-300 hover:bg-orange-50 px-2.5 py-1 text-[10px] text-slate-600 font-medium transition-all disabled:opacity-50">
+                  {chip.label}
+                </button>
+              ))}
             </div>
 
-            {/* Input Form */}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSendMessage(inputValue);
-              }}
-              className="flex items-center gap-2 border-t border-slate-100 bg-white px-4 py-3"
-            >
+            {/* Input */}
+            <div className="flex items-center gap-2 px-3 py-3 bg-white border-t border-slate-100">
               <input
-                type="text"
-                placeholder="Ask Bob about budgets, loans, or goals..."
+                ref={inputRef}
                 value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                className="flex-1 bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-brand-teal transition-colors"
+                onChange={e => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
                 disabled={loading}
+                placeholder={preferredLanguage === "hi" ? "Bob से पूछें..." : preferredLanguage === "mr" ? "Bob ला विचारा..." : "Ask Bob anything..."}
+                className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs focus:outline-none focus:border-orange-400 transition-colors placeholder:text-slate-400"
               />
-              <button
-                type="submit"
-                className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-teal text-white hover:bg-brand-teal-light shadow-sm disabled:opacity-50 transition-colors"
-                disabled={loading || !inputValue.trim()}
-              >
-                <Send className="h-4.5 w-4.5" />
+              <button onClick={() => handleSend(inputValue)} disabled={loading || !inputValue.trim()}
+                className="h-8 w-8 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 text-white flex items-center justify-center hover:from-orange-400 hover:to-amber-400 transition-all disabled:opacity-50 shrink-0">
+                <Send className="h-3.5 w-3.5" />
               </button>
-            </form>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Floating Mascot Button Bubble */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-teal hover:bg-brand-teal-light text-white shadow-lg shadow-teal-700/20 hover:scale-105 transition-all duration-200 group relative border border-white/20"
-      >
-        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[9px] font-bold text-white shadow-sm ring-1 ring-white">
-          <Sparkles className="h-2.5 w-2.5" />
-        </span>
-        <MessageSquare className="h-6 w-6 group-hover:rotate-6 transition-transform" />
-      </button>
-    </div>
+    </>
   );
 };

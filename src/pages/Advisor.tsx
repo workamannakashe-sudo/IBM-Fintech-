@@ -19,6 +19,7 @@ export const Advisor: React.FC = () => {
     totalSpentThisMonth,
     budgets,
     currency,
+    preferredLanguage,
   } = useFinancial();
 
   const [messages, setMessages] = useState<Message[]>([
@@ -72,14 +73,12 @@ export const Advisor: React.FC = () => {
     setLoading(true);
 
     const financialContext = {
-      liquidBalance,
-      monthlyIncome: profile.monthlyAllowance,
+      remainingBudget: Math.max(0, liquidBalance),
+      monthlyAllowance: profile.monthlyAllowance,
       totalSpentThisMonth,
       dailyBurnRate,
-      budgetLimit: totalBudget,
       savingsGoals: goals.map((g) => ({ name: g.name, target: g.target, current: g.current })),
       recentTransactions: transactions.slice(0, 5).map((t) => ({
-        date: t.date,
         description: t.description,
         amount: t.amount,
         category: t.category,
@@ -95,6 +94,7 @@ export const Advisor: React.FC = () => {
       const responseText = await askCoach({
         message: textToSend,
         chatHistory,
+        preferredLanguage,
         financialContext,
       });
 
