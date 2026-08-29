@@ -307,8 +307,8 @@ npm run build
 
 <div align="center">
 
-**BudgetMitra** — Built with ❤️ for Students Worldwide  
-**Live Production App**: [https://ibm-fintech.vercel.app/](https://ibm-fintech.vercel.app/)  
-*SkillUp Hackathon × IBM SkillsBuild · Student AI Track: Financial Literacy*
+**BudgetMitra** — Built for Students Worldwide  
+**Live App**: [https://ibm-fintech.vercel.app/](https://ibm-fintech.vercel.app/)  
+
 
 </div>
