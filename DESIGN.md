@@ -1,6 +1,6 @@
-# FinWise — Design System (DESIGN.md)
+# BudgetMitra — Design System (DESIGN.md)
 
-This document defines the UI style guide and design parameters for FinWise. The visual style is designed to be high-contrast, modern, clean, and energetic for college students, avoiding dry or clinical designs.
+This document defines the UI style guide and design parameters for BudgetMitra. The visual style is designed to be high-contrast, modern, clean, and energetic for college students, avoiding dry or clinical designs.
 
 ---
 

@@ -1,4 +1,4 @@
-// FinWise Budget Planner & Burn Rate Velocity Simulator (Budget.tsx)
+// BudgetMitra Budget Planner & Burn Rate Velocity Simulator (Budget.tsx)
 import React, { useState, useMemo } from "react";
 import { useFinancial } from "../context/FinancialContext";
 import { 

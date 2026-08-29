@@ -1,4 +1,4 @@
-// FinWise Financial Calculation Utilities (finance.ts)
+// BudgetMitra Financial Calculation Utilities (finance.ts)
 
 export interface AmortizationPeriod {
   month: number;

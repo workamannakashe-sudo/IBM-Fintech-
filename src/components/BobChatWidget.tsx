@@ -30,11 +30,12 @@ export const BobChatWidget: React.FC<BobChatWidgetProps> = ({ setActiveTab }) =>
   } = useFinancial();
 
   const [isOpen, setIsOpen] = useState(false);
+  // Model runtime: Powered by Google Gemini 2.5 Flash API with offline rule-based heuristic fallback
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "m0",
       sender: "bob",
-      text: "Hey! I'm Bob 🤖 — BudgetMitra's AI co-pilot. I can check if you can afford something, find government schemes, or explain any money concept. What's on your mind?",
+      text: "Hey! I'm FinBuddy 🤖 — BudgetMitra's AI assistant. I can check if you can afford something, find government schemes, or explain any money concept. What's on your mind?",
       timestamp: new Date(),
     },
   ]);
@@ -220,8 +221,8 @@ export const BobChatWidget: React.FC<BobChatWidgetProps> = ({ setActiveTab }) =>
                   <Sparkles className="h-4 w-4 text-white dark:text-[#ff2d78]" />
                 </div>
                 <div>
-                  <p className="text-white font-bold text-sm leading-tight">IBM Bob</p>
-                  <p className="text-blue-100 dark:text-zinc-400 text-[10px]">BudgetMitra AI Co-Pilot</p>
+                  <p className="text-white font-bold text-sm leading-tight">FinBuddy</p>
+                  <p className="text-blue-100 dark:text-zinc-400 text-[10px]">BudgetMitra AI Assistant</p>
                 </div>
               </div>
               <button
@@ -321,10 +322,10 @@ export const BobChatWidget: React.FC<BobChatWidgetProps> = ({ setActiveTab }) =>
                 disabled={loading}
                 placeholder={
                   preferredLanguage === "hi"
-                    ? "Bob से पूछें..."
+                    ? "FinBuddy से पूछें..."
                     : preferredLanguage === "mr"
-                    ? "Bob ला विचारा..."
-                    : "Ask Bob anything..."
+                    ? "FinBuddy ला विचारा..."
+                    : "Ask FinBuddy anything..."
                 }
                 className="flex-1 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-900 px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 dark:focus:border-[#ff2d78] transition-colors placeholder:text-slate-400 dark:placeholder:text-zinc-500"
               />

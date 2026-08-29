@@ -1,4 +1,4 @@
-// FinWise CSV Statement Parsing Service (csvParser.ts)
+// BudgetMitra CSV Statement Parsing Service (csvParser.ts)
 import Papa from "papaparse";
 
 export interface CSVTransactionInput {

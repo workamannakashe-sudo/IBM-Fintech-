@@ -174,7 +174,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab }) => {
                 { id: "split", label: "Split Bill", icon: Users, action: () => setIsSplitModalOpen(true) },
                 { id: "envelopes", label: "Envelopes", icon: Sliders, action: () => setActiveTab("budget") },
                 { id: "reports", label: "Reports & PDF", icon: FileText, action: handleDownloadPDF },
-                { id: "bob", label: "IBM Bob AI", icon: Sparkles, action: () => setActiveTab("advisor") },
+                // Powered by Google Gemini 2.5 Flash & Heuristic Decision Rules
+                { id: "bob", label: "AI Assistant", icon: Sparkles, action: () => setActiveTab("advisor") },
               ].map((pill) => {
                 const Icon = pill.icon;
                 const isActive = activeSubTab === pill.id;

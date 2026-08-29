@@ -1,4 +1,4 @@
-// FinWise PDF Report Generation Service (pdfGenerator.ts)
+// BudgetMitra PDF Report Generation Service (pdfGenerator.ts)
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -42,7 +42,7 @@ export function generateMonthlyPDFReport(data: PDFReportData): void {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(22);
   doc.setTextColor(255, 255, 255);
-  doc.text("FinWise", 14, 16);
+  doc.text("BudgetMitra", 14, 16);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
@@ -198,11 +198,11 @@ export function generateMonthlyPDFReport(data: PDFReportData): void {
   doc.setFontSize(8);
   doc.setTextColor(120, 120, 120);
   doc.text(
-    "Disclaimer: FinWise statements are intended for educational and financial guidance purposes. Validate balances with your banking institution.",
+    "Disclaimer: BudgetMitra statements are intended for educational and financial guidance purposes. Validate balances with your banking institution.",
     14,
     finalY > 280 ? 285 : finalY
   );
 
   // Save report
-  doc.save(`FinWise_Statement_${data.monthYear.replace(/\s+/g, "_")}.pdf`);
+  doc.save(`BudgetMitra_Statement_${data.monthYear.replace(/\s+/g, "_")}.pdf`);
 }

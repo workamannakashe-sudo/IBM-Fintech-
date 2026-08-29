@@ -121,3 +121,51 @@ CREATE POLICY "schemes_select" ON public.schemes FOR SELECT USING (auth.role() =
 CREATE POLICY "chat_messages_select" ON public.chat_messages FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "chat_messages_insert" ON public.chat_messages FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "chat_messages_delete" ON public.chat_messages FOR DELETE USING (auth.uid() = user_id);
+
+-- ==========================================
+-- 6. Initial Seed Data for Schemes
+-- ==========================================
+-- TODO: verify against official source (https://scholarships.gov.in)
+INSERT INTO public.schemes (name, type, authority, eligibility, benefit, apply_url, description)
+VALUES 
+(
+    'Prime Minister Scholarship Scheme (PMSS)',
+    'scholarship',
+    'Government of India (DESW)',
+    '{"income_max": null, "category": ["Gen", "OBC", "SC", "ST", "EWS"], "state": "all", "course_type": ["B.Tech", "B.E", "MCA", "MBA", "BCA"]}',
+    '₹2,500–₹3,000/month',
+    'https://scholarships.gov.in',
+    'For wards/widows of ex-servicemen. Apply via the National Scholarship Portal.'
+),
+-- TODO: verify against official source (https://scholarships.gov.in)
+(
+    'Post Matric Scholarship for OBC Students',
+    'scholarship',
+    'Ministry of Social Justice and Empowerment, GoI',
+    '{"income_max": 100000, "category": ["OBC"], "state": "all", "course_type": ["B.Tech", "B.Sc", "B.Com", "B.A", "BBA", "BCA", "Diploma"]}',
+    'Full tuition fee + ₹230–₹570/month maintenance',
+    'https://scholarships.gov.in',
+    'Central government post-matric scholarship for OBC students with family income below ₹1 lakh.'
+),
+-- TODO: verify against official source (https://www.vidyalakshmi.co.in)
+(
+    'Vidya Lakshmi Education Loan Scheme',
+    'loan',
+    'Department of Financial Services, GoI',
+    '{"income_max": null, "category": ["Gen", "OBC", "SC", "ST", "EWS"], "state": "all", "course_type": ["B.Tech", "B.E", "MBBS", "MBA", "B.Sc", "B.Com", "B.A"]}',
+    'Loans ₹50,000–₹10,00,000+ at 8.5%–11% from 40+ banks',
+    'https://www.vidyalakshmi.co.in',
+    'Single portal to apply for education loans. No collateral for loans up to ₹7.5 lakhs.'
+),
+-- TODO: verify against official source (https://www.aicte-pragati-saksham-gov.in)
+(
+    'AICTE Pragati Scholarship for Girls',
+    'scholarship',
+    'AICTE',
+    '{"income_max": 800000, "category": ["Gen", "OBC", "SC", "ST", "EWS"], "state": "all", "course_type": ["B.Tech", "B.E", "B.Arch", "B.Pharm", "MCA", "MBA", "Diploma"], "gender": "female"}',
+    '₹50,000 per year for up to 4 years',
+    'https://www.aicte-pragati-saksham-gov.in',
+    'Empowering girl students in AICTE-approved technical institutions.'
+)
+ON CONFLICT DO NOTHING;
+

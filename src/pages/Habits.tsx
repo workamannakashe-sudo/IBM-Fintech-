@@ -1,4 +1,4 @@
-// FinWise Streak Tracking & Habit Calendar Heatmap (Habits.tsx)
+// BudgetMitra Streak Tracking & Habit Calendar Heatmap (Habits.tsx)
 import React, { useMemo } from "react";
 import { useGamification, ALL_BADGES } from "../context/GamificationContext";
 import { 

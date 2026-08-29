@@ -1,4 +1,4 @@
-// FinWise Gamification & Streak Context Provider (GamificationContext.tsx)
+// BudgetMitra Gamification & Streak Context Provider (GamificationContext.tsx)
 import React, { createContext, useContext, useState, useEffect } from "react";
 import confetti from "canvas-confetti";
 
@@ -29,33 +29,33 @@ const ALL_BADGES: Badge[] = [
   { id: "b3", name: "7-Day Warrior", description: "Log details consistently for 7 days.", iconName: "Calendar" },
   { id: "b4", name: "First Goal Funded", description: "Successfully reach a Milestone Savings Goal.", iconName: "Trophy" },
   { id: "b5", name: "Debt Buster", description: "Simulate accelerated payoffs for student loans.", iconName: "Zap" },
-  { id: "b6", name: "Finance Guru", description: "Reach Level 4 in FinWise financial literacy.", iconName: "Crown" },
+  { id: "b6", name: "Finance Guru", description: "Reach Level 4 in BudgetMitra financial literacy.", iconName: "Crown" },
 ];
 
 const GamificationContext = createContext<GamificationContextType | undefined>(undefined);
 
 export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [xp, setXp] = useState<number>(() => {
-    const val = localStorage.getItem("fw_xp");
+    const val = localStorage.getItem("bm_xp");
     return val ? parseInt(val) : 0; // Clean default XP
   });
 
   const [level, setLevel] = useState<number>(() => {
-    const val = localStorage.getItem("fw_level");
+    const val = localStorage.getItem("bm_level");
     return val ? parseInt(val) : 1;
   });
 
   const [streak, setStreak] = useState<number>(() => {
-    const val = localStorage.getItem("fw_streak");
+    const val = localStorage.getItem("bm_streak");
     return val ? parseInt(val) : 0; // Clean default streak
   });
 
   const [badges, setBadges] = useState<Badge[]>(() => {
     try {
-      const val = localStorage.getItem("fw_badges_list");
+      const val = localStorage.getItem("bm_badges");
       return val ? JSON.parse(val) : []; // Clean default badges
     } catch (e) {
-      console.warn("Failed to parse fw_badges_list from localStorage, falling back to seed data", e);
+      console.warn("Failed to parse bm_badges from localStorage, falling back to seed data", e);
       return [];
     }
   });
@@ -63,23 +63,23 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // Logged days for the GitHub heatmap calendar
   const [loggingHistory, setLoggingHistory] = useState<string[]>(() => {
     try {
-      const val = localStorage.getItem("fw_log_history");
+      const val = localStorage.getItem("bm_logging_history");
       return val ? JSON.parse(val) : []; // Clean default history
     } catch (e) {
-      console.warn("Failed to parse fw_log_history from localStorage, falling back to seed data", e);
+      console.warn("Failed to parse bm_logging_history from localStorage, falling back to seed data", e);
       return [];
     }
   });
 
   const [unlockedBadge, setUnlockedBadge] = useState<Badge | null>(null);
 
-  // Sync state to local storage
+  // Persist State Updates
   useEffect(() => {
-    localStorage.setItem("fw_xp", String(xp));
-    localStorage.setItem("fw_level", String(level));
-    localStorage.setItem("fw_streak", String(streak));
-    localStorage.setItem("fw_badges_list", JSON.stringify(badges));
-    localStorage.setItem("fw_log_history", JSON.stringify(loggingHistory));
+    localStorage.setItem("bm_xp", xp.toString());
+    localStorage.setItem("bm_level", level.toString());
+    localStorage.setItem("bm_streak", streak.toString());
+    localStorage.setItem("bm_badges", JSON.stringify(badges));
+    localStorage.setItem("bm_logging_history", JSON.stringify(loggingHistory));
   }, [xp, level, streak, badges, loggingHistory]);
 
   // Level thresholds: Lvl 1 (0-300), Lvl 2 (300-800), Lvl 3 (800-1500), Lvl 4 (1500+)

@@ -1,16 +1,16 @@
-// FinWise Google Sheets & Google Drive Sync Service (sheetsSync.ts)
+// BudgetMitra Google Sheets & Google Drive Sync Service (sheetsSync.ts)
 
 // Reusable Google Apps Script Code Template
 export const APPS_SCRIPT_TEMPLATE = `
 /**
- * FinWise Google Sheets & Google Drive Sync Handler
+ * BudgetMitra Google Sheets & Google Drive Sync Handler
  * 
  * Instructions:
  * 1. Open Google Sheets, click "Extensions" -> "Apps Script"
  * 2. Paste this code and save.
  * 3. Click "Deploy" -> "New Deployment"
  * 4. Choose "Web App", set "Execute as: Me", and "Who has access: Anyone"
- * 5. Deploy, copy the Web App URL, and paste it in the FinWise profile settings!
+ * 5. Deploy, copy the Web App URL, and paste it in the BudgetMitra profile settings!
  */
 
 function doGet(e) {
@@ -58,7 +58,7 @@ function doPost(e) {
     
     // Action 2: Save PDF Statement report to Google Drive
     if (data.action === "upload_pdf") {
-      var folderName = "FinWise Statements";
+      var folderName = "BudgetMitra Statements";
       var folders = DriveApp.getFoldersByName(folderName);
       var folder;
       

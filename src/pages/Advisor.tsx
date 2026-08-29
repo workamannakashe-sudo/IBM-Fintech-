@@ -27,7 +27,7 @@ export const Advisor: React.FC = () => {
     {
       id: "m0",
       sender: "coach",
-      text: `Hello ${profile.name || "there"}! I'm Bob, your IBM AI financial co-pilot for BudgetMitra. Ask me anything about managing your student allowance, cutting variable expenses, optimizing budgets, government scholarships, or loan interest. I am fully grounded in your real-time cash flow!`,
+      text: `Hello ${profile.name || "there"}! I'm FinBuddy, your AI financial advisor for BudgetMitra. Ask me anything about managing your student allowance, cutting variable expenses, optimizing budgets, government scholarships, or loan interest. I am fully grounded in your real-time cash flow!`,
       timestamp: new Date(),
     },
   ]);
@@ -136,7 +136,7 @@ export const Advisor: React.FC = () => {
       {/* Title block */}
       <div>
         <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 font-display">
-          IBM Bob Financial Advisor
+          AI Financial Advisor
         </h1>
         <p className="text-sm text-slate-500">
           Get real-time student budgeting advice, compound savings milestones, and personalized cash-flow guidelines.
@@ -154,7 +154,7 @@ export const Advisor: React.FC = () => {
               <Sparkles className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-800 font-display leading-tight">IBM Bob AI Co-Pilot</h3>
+              <h3 className="text-sm font-bold text-slate-800 font-display leading-tight">FinBuddy AI Advisor</h3>
               <span className="text-[10px] font-semibold text-emerald-600 flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
                 Live Student Financial Grounding Connected

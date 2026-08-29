@@ -1,4 +1,4 @@
-// FinWise Health Score Equation Utilities (health.ts)
+// BudgetMitra Health Score Equation Utilities (health.ts)
 
 export interface HealthBreakdown {
   score: number; // 0 - 100

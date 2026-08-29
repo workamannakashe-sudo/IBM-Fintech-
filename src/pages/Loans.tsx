@@ -1,4 +1,4 @@
-// FinWise Student Loan & EMI Accelerated Payoff Simulator (Loans.tsx)
+// BudgetMitra Student Loan & EMI Accelerated Payoff Simulator (Loans.tsx)
 import React, { useState, useMemo, useEffect } from "react";
 import { useFinancial } from "../context/FinancialContext";
 import { simulateAcceleratedPayoff } from "../utils/finance";

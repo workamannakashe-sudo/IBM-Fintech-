@@ -18,6 +18,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 
 const FALLBACK_SCHEMES: SchemeRow[] = [
+  // TODO: verify against official source (https://scholarships.gov.in)
   {
     id: "f1",
     name: "Prime Minister Scholarship Scheme (PMSS)",
@@ -33,6 +34,7 @@ const FALLBACK_SCHEMES: SchemeRow[] = [
     apply_url: "https://scholarships.gov.in",
     description: "For wards/widows of ex-servicemen. Apply via the National Scholarship Portal.",
   },
+  // TODO: verify against official source (https://scholarships.gov.in)
   {
     id: "f2",
     name: "Post Matric Scholarship for OBC Students",
@@ -48,6 +50,7 @@ const FALLBACK_SCHEMES: SchemeRow[] = [
     apply_url: "https://scholarships.gov.in",
     description: "Central government post-matric scholarship for OBC students with family income below ₹1 lakh.",
   },
+  // TODO: verify against official source (https://scholarships.gov.in)
   {
     id: "f3",
     name: "Central Sector Scheme of Scholarship (CSSS)",
@@ -63,6 +66,7 @@ const FALLBACK_SCHEMES: SchemeRow[] = [
     apply_url: "https://scholarships.gov.in",
     description: "Merit-based scholarship for top class 12 scorers from low-income families.",
   },
+  // TODO: verify against official source (https://www.vidyalakshmi.co.in)
   {
     id: "f4",
     name: "Vidya Lakshmi Education Loan Scheme",
@@ -78,6 +82,7 @@ const FALLBACK_SCHEMES: SchemeRow[] = [
     apply_url: "https://www.vidyalakshmi.co.in",
     description: "Single portal to apply for education loans. No collateral for loans up to ₹7.5 lakhs.",
   },
+  // TODO: verify against official source (https://www.aicte-pragati-saksham-gov.in)
   {
     id: "f5",
     name: "AICTE Pragati Scholarship for Girls",
@@ -94,6 +99,7 @@ const FALLBACK_SCHEMES: SchemeRow[] = [
     apply_url: "https://www.aicte-pragati-saksham-gov.in",
     description: "Empowering girl students in AICTE-approved technical institutions.",
   },
+  // TODO: verify against official source (https://www.7nishchay-yuvaupmission.bihar.gov.in)
   {
     id: "f6",
     name: "Bihar Student Credit Card Scheme",
@@ -109,6 +115,7 @@ const FALLBACK_SCHEMES: SchemeRow[] = [
     apply_url: "https://www.7nishchay-yuvaupmission.bihar.gov.in",
     description: "For Bihar domicile students for higher education expenses.",
   },
+  // TODO: verify against official source (https://www.tatascholarships.com)
   {
     id: "f7",
     name: "Tata Scholarship for Indian Undergraduates",
@@ -124,6 +131,7 @@ const FALLBACK_SCHEMES: SchemeRow[] = [
     apply_url: "https://www.tatascholarships.com",
     description: "Need-based scholarships for premier institution students.",
   },
+  // TODO: verify against official source (https://mysy.guj.nic.in)
   {
     id: "f8",
     name: "MYSY Scholarship (Gujarat)",

@@ -102,8 +102,7 @@ export const Login: React.FC = () => {
             Budget<span className="text-orange-400">Mitra</span>
           </h1>
           <p className="text-slate-400 text-xs max-w-xs mx-auto leading-relaxed">
-            🤝 Your AI financial co-pilot — powered by <span className="text-orange-300 font-semibold">IBM Bob</span>.
-            Budget smarter, discover scholarships, make better spending decisions.
+            🤝 Your smart financial co-pilot for college. Budget smarter, discover scholarships, and make better spending decisions with AI assistance.
           </p>
         </div>
 
@@ -296,7 +295,7 @@ export const Login: React.FC = () => {
                 Explore as Guest
               </h2>
               <p className="text-slate-400 text-xs leading-relaxed">
-                Try BudgetMitra's budget tracker, <strong>"Can I Afford This?"</strong> engine, and IBM Bob chat without creating an account. Data is kept locally only.
+                Try BudgetMitra's budget tracker, <strong>"Can I Afford This?"</strong> engine, and AI financial assistant chat without creating an account. Data is kept locally only.
               </p>
 
               <div>

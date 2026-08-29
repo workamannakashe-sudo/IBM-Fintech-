@@ -1,4 +1,4 @@
-// FinWise Badge Celebration Confetti Modal (BadgeCelebrationModal.tsx)
+// BudgetMitra Badge Celebration Confetti Modal (BadgeCelebrationModal.tsx)
 import React, { useEffect } from "react";
 import { useGamification } from "../context/GamificationContext";
 import { Trophy, Flame, Coins, Calendar, Zap, Crown, Award } from "lucide-react";
