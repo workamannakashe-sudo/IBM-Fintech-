@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { useFinancial } from "../context/FinancialContext";
 import {
   ShieldCheck, ShieldAlert, ShieldX, ShoppingBag,
-  Sparkles, Lightbulb, RefreshCw, IndianRupee, Globe
+  Sparkles, Lightbulb, RefreshCw, IndianRupee
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { askAffordabilityBob } from "../services/gemini";
@@ -117,17 +117,12 @@ export const Affordability: React.FC = () => {
   };
 
   const cfg = result ? verdictConfig[result.decision] : null;
-  const langLabel: Record<string, string> = { en: "EN", hi: "हिन्दी", mr: "मराठी" };
-  const currentLang = langLabel[preferredLanguage] || "EN";
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-display flex items-center gap-2">
           "Can I Afford This?" — IBM Bob Check
-          <span className="ml-auto flex items-center gap-1 text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded-full px-2.5 py-1">
-            <Globe className="h-3 w-3" /> {currentLang}
-          </span>
         </h1>
         <p className="text-sm text-slate-500 mt-0.5">
           IBM Bob analyzes your remaining budget, daily burn rate, and savings goals to give you a real decision.
@@ -197,10 +192,10 @@ export const Affordability: React.FC = () => {
             </div>
 
             <button type="submit" disabled={isLoading || !itemName.trim() || !itemPrice}
-              className="w-full rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-white font-bold py-3.5 text-xs shadow-md shadow-orange-200 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5">
+              className="w-full rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-white font-bold py-3.5 text-xs shadow-md shadow-orange-200 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer">
               {isLoading
                 ? <><RefreshCw className="h-4 w-4 animate-spin" /> IBM Bob is reasoning...</>
-                : <><Sparkles className="h-4 w-4" /> Ask Bob ({currentLang})</>
+                : <><Sparkles className="h-4 w-4" /> Ask IBM Bob</>
               }
             </button>
           </form>
@@ -254,7 +249,7 @@ export const Affordability: React.FC = () => {
 
                 <div className="rounded-xl bg-white/80 border border-white/60 p-4 space-y-2 backdrop-blur-sm">
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                    <Sparkles className="h-3 w-3 text-orange-400" /> IBM Bob's Reasoning ({currentLang})
+                    <Sparkles className="h-3 w-3 text-orange-400" /> IBM Bob's Reasoning
                   </p>
                   <p className="text-sm text-slate-700 leading-relaxed font-medium">{result.reasoning}</p>
                 </div>

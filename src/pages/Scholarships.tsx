@@ -189,10 +189,6 @@ export const Scholarships: React.FC = () => {
           <span className="font-bold text-slate-600">Family Income:</span>
           <span className="bg-white border border-orange-200 rounded-full px-2 py-0.5 font-semibold text-orange-700">{profile.income_bracket || "1-3L"}</span>
         </div>
-        <div className="flex items-center gap-1.5 ml-auto">
-          <span className="font-bold text-slate-600">Bob's language:</span>
-          <span className="bg-orange-100 border border-orange-200 rounded-full px-2 py-0.5 font-bold text-orange-700 uppercase">{preferredLanguage}</span>
-        </div>
       </div>
 
       {/* Filter tabs */}

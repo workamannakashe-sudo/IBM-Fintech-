@@ -5,7 +5,7 @@ import { useGamification } from "../context/GamificationContext";
 import { 
   Wallet, LayoutDashboard, ReceiptText, ShieldQuestion, 
   Percent, GraduationCap, CalendarHeart, 
-  RotateCcw, ChevronDown, Sliders, Settings2, LogOut, Bot, Globe 
+  RotateCcw, ChevronDown, Sliders, Settings2, LogOut, Bot 
 } from "lucide-react";
 
 interface NavbarProps {
@@ -23,8 +23,6 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
     isGuest,
     logout,
     supabaseStatus,
-    preferredLanguage,
-    setPreferredLanguage,
   } = useFinancial();
 
   const { level, resetGamification } = useGamification();
@@ -94,27 +92,6 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
             </div>
           </div>
 
-          {/* Inline Language Selector for IBM Bob */}
-          <div className="hidden sm:flex items-center gap-1 bg-gradient-to-r from-orange-50 to-amber-50 p-1 rounded-xl border border-orange-200/80 shadow-xs">
-            {([
-              { code: "en" as const, label: "EN" },
-              { code: "hi" as const, label: "हिन्दी" },
-              { code: "mr" as const, label: "मराठी" },
-            ]).map(({ code, label }) => (
-              <button
-                key={code}
-                onClick={() => setPreferredLanguage(code)}
-                className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
-                  preferredLanguage === code
-                    ? "bg-orange-500 text-white shadow-sm"
-                    : "text-slate-600 hover:text-orange-700 hover:bg-white/80"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
           {/* User Profile & Config Menu */}
           <div className="relative">
             <button
@@ -164,33 +141,6 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
                     <Settings2 className="h-3.5 w-3.5 text-orange-500" />
                     Preferences
                   </h4>
-
-                  {/* Language Toggle */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs text-slate-600 font-semibold flex items-center gap-1">
-                      <Globe className="h-3 w-3 text-orange-500" />
-                      IBM Bob AI Language
-                    </label>
-                    <div className="flex gap-1.5">
-                      {([
-                        { code: "en" as const, label: "EN" },
-                        { code: "hi" as const, label: "हिन्दी" },
-                        { code: "mr" as const, label: "मराठी" },
-                      ]).map(({ code, label }) => (
-                        <button
-                          key={code}
-                          onClick={() => setPreferredLanguage(code)}
-                          className={`flex-1 rounded-xl py-1.5 text-xs font-bold border transition-all ${
-                            preferredLanguage === code
-                              ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white border-orange-500 shadow-sm"
-                              : "bg-slate-50 text-slate-600 border-slate-200 hover:border-orange-300"
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
 
                   {/* Currency selector */}
                   <div className="grid grid-cols-2 gap-2 items-center">

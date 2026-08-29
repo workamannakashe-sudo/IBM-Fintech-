@@ -18,36 +18,26 @@ interface BobChatWidgetProps {
   setActiveTab: (tab: string) => void;
 }
 
-const LANG_LABEL: Record<string, string> = { en: "EN", hi: "हिन्दी", mr: "मराठी" };
-
-const getWelcomeMessage = (lang: string): string => {
-  if (lang === "hi") return "नमस्ते! मैं Bob हूँ — BudgetMitra का AI financial co-pilot। आपका बजट कैसा चल रहा है? कोई भी खर्च, scholarship, या loan के बारे में पूछ सकते हैं!";
-  if (lang === "mr") return "नमस्कार! मी Bob आहे — BudgetMitra चा AI financial co-pilot. तुमचं बजेट कसं चालू आहे? कोणताही खर्च, scholarship, किंवा loan बद्दल विचारा!";
-  return "Hey! I'm Bob 🤖 — BudgetMitra's IBM-powered AI co-pilot. I can check if you can afford something, find scholarships you qualify for, or explain any money concept. What's on your mind?";
-};
-
 export const BobChatWidget: React.FC<BobChatWidgetProps> = ({ setActiveTab }) => {
   const {
     profile, transactions, goals, dailyBurnRate, totalSpentThisMonth,
-    preferredLanguage, setPreferredLanguage,
+    preferredLanguage,
   } = useFinancial();
 
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: "m0",
+      sender: "bob",
+      text: "Hey! I'm Bob 🤖 — BudgetMitra's AI co-pilot. I can check if you can afford something, find scholarships you qualify for, or explain any money concept. What's on your mind?",
+      timestamp: new Date(),
+    }
+  ]);
   const [inputValue, setInputValue] = useState("");
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const dbProfileId = typeof window !== "undefined" ? localStorage.getItem("fw_db_profile_id") : null;
-
-  // Init welcome message based on language
-  useEffect(() => {
-    setMessages([{
-      id: "m0", sender: "bob",
-      text: getWelcomeMessage(preferredLanguage),
-      timestamp: new Date(),
-    }]);
-  }, [preferredLanguage]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -57,26 +47,12 @@ export const BobChatWidget: React.FC<BobChatWidgetProps> = ({ setActiveTab }) =>
     if (isOpen) setTimeout(() => inputRef.current?.focus(), 100);
   }, [isOpen]);
 
-  const actionChips = preferredLanguage === "hi"
-    ? [
-        { label: "🔥 खर्च दर (Burn rate)", query: "मेरा इस महीने का खर्च और daily burn rate कैसा चल रहा है?" },
-        { label: "💡 बचत टिप्स", query: "इस महीने पैसे बचाने के 3 आसान और असरदार तरीके बताएं।" },
-        { label: "🎓 सरकारी योजनाएं", query: "मेरी प्रोफाइल के लिए कौन सी छात्रवृत्तियां उपलब्ध हैं?", redirect: "scholarships" },
-        { label: "🤔 नया फोन खरीदूं?", query: "क्या मैं ₹15,000 का नया स्मार्टफोन अभी खरीद सकता हूँ?" },
-      ]
-    : preferredLanguage === "mr"
-    ? [
-        { label: "🔥 खर्च वेग (Burn rate)", query: "माझा या महिन्याचा दैनंदिन खर्च आणि daily burn rate कसा चालू आहे?" },
-        { label: "💡 बचतीचे उपाय", query: "या महिन्यात पैसे वाचवण्यासाठी ३ सोपे उपाय सांगा." },
-        { label: "🎓 शिष्यवृत्ती", query: "माझ्या प्रोफाइलनुसार मला कोणत्या शिष्यवृत्ती मिळू शकतात?", redirect: "scholarships" },
-        { label: "🤔 फोन खरेदी करू का?", query: "मी ₹१५,००० चा नवीन स्मार्टफोन आता खरेदी करू शकेन का?" },
-      ]
-    : [
-        { label: "🔥 Burn rate?", query: "How is my burn rate and spending this month?" },
-        { label: "💡 Save tips", query: "Give me 3 practical tips to save money this month." },
-        { label: "🎓 Scholarships?", query: "Which scholarships am I likely eligible for?", redirect: "scholarships" },
-        { label: "🤔 Can I buy phone?", query: "Can I afford to buy a new smartphone worth ₹18,000?" },
-      ];
+  const actionChips = [
+    { label: "🔥 Burn rate?", query: "How is my burn rate and spending this month?" },
+    { label: "💡 Save tips", query: "Give me 3 practical tips to save money this month." },
+    { label: "🎓 Scholarships?", query: "Which scholarships am I likely eligible for?", redirect: "scholarships" },
+    { label: "🤔 Can I buy phone?", query: "Can I afford to buy a new smartphone worth ₹18,000?" },
+  ];
 
   const persistToDB = async (role: "user" | "bob", content: string) => {
     if (!isSupabaseConfigured() || !dbProfileId) return;
@@ -206,24 +182,9 @@ export const BobChatWidget: React.FC<BobChatWidgetProps> = ({ setActiveTab }) =>
                   <p className="text-orange-100 text-[10px]">BudgetMitra AI Co-Pilot</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                {/* Language toggle in chat header */}
-                <div className="flex gap-1">
-                  {(["en", "hi", "mr"] as const).map(lang => (
-                    <button key={lang} onClick={() => setPreferredLanguage(lang)}
-                      className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full transition-all ${
-                        preferredLanguage === lang
-                          ? "bg-white text-orange-600"
-                          : "text-white/70 hover:text-white"
-                      }`}>
-                      {LANG_LABEL[lang]}
-                    </button>
-                  ))}
-                </div>
-                <button onClick={() => setIsOpen(false)} className="text-white/80 hover:text-white transition-colors">
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
+              <button onClick={() => setIsOpen(false)} className="text-white/80 hover:text-white transition-colors cursor-pointer p-1">
+                <X className="h-4 w-4" />
+              </button>
             </div>
 
             {/* Message Feed */}
