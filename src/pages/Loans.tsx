@@ -192,14 +192,14 @@ export const Loans: React.FC = () => {
   }, [currency]);
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300 text-slate-900 dark:text-white">
       
       {/* Title */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white font-display">
           Loan & Payoff Simulator
         </h1>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-slate-500 dark:text-zinc-400">
           Simulate simple/compound interest loans, test the impact of extra monthly contributions, and study amortization timelines.
         </p>
       </div>
@@ -208,17 +208,17 @@ export const Loans: React.FC = () => {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         
         {/* Sliders Card */}
-        <div className="lg:col-span-1 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-5">
-          <h3 className="font-display text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5 border-b border-slate-100 pb-3">
-            <Percent className="h-4.5 w-4.5 text-brand-teal" />
+        <div className="lg:col-span-1 rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#121217] p-6 shadow-sm space-y-5">
+          <h3 className="font-display text-sm font-bold text-slate-800 dark:text-zinc-200 uppercase tracking-wide flex items-center gap-1.5 border-b border-slate-100 dark:border-zinc-800 pb-3">
+            <Percent className="h-4.5 w-4.5 text-teal-600 dark:text-cyan-400" />
             Simulation Sliders
           </h3>
 
           {/* Principal */}
           <div className="space-y-1.5">
-            <div className="flex justify-between text-xs font-semibold text-slate-700">
+            <div className="flex justify-between text-xs font-semibold text-slate-700 dark:text-zinc-300">
               <span>Principal Amount</span>
-              <span className="font-bold">{formatAmt(principal)}</span>
+              <span className="font-bold text-slate-900 dark:text-white">{formatAmt(principal)}</span>
             </div>
             <input
               type="range"
@@ -227,16 +227,16 @@ export const Loans: React.FC = () => {
               step={limits.principalStep}
               value={principal}
               onChange={(e) => setPrincipal(parseInt(e.target.value))}
-              className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-brand-teal"
+              className="w-full h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-teal-600 dark:accent-cyan-400"
             />
-            <p className="text-[9px] text-slate-400">Total initial borrowed amount</p>
+            <p className="text-[9px] text-slate-400 dark:text-zinc-500">Total initial borrowed amount</p>
           </div>
 
           {/* Interest Rate */}
           <div className="space-y-1.5">
-            <div className="flex justify-between text-xs font-semibold text-slate-700">
+            <div className="flex justify-between text-xs font-semibold text-slate-700 dark:text-zinc-300">
               <span>Annual Interest Rate</span>
-              <span className="font-bold">{rate.toFixed(2)}%</span>
+              <span className="font-bold text-slate-900 dark:text-white">{rate.toFixed(2)}%</span>
             </div>
             <input
               type="range"
@@ -245,16 +245,16 @@ export const Loans: React.FC = () => {
               step="0.1"
               value={rate}
               onChange={(e) => setRate(parseFloat(e.target.value))}
-              className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-brand-teal"
+              className="w-full h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-teal-600 dark:accent-cyan-400"
             />
-            <p className="text-[9px] text-slate-400">Fixed rate of interest over the loan tenure</p>
+            <p className="text-[9px] text-slate-400 dark:text-zinc-500">Fixed rate of interest over the loan tenure</p>
           </div>
 
           {/* Term duration */}
           <div className="space-y-1.5">
-            <div className="flex justify-between text-xs font-semibold text-slate-700">
+            <div className="flex justify-between text-xs font-semibold text-slate-700 dark:text-zinc-300">
               <span>Repayment Term</span>
-              <span className="font-bold">{term} Months</span>
+              <span className="font-bold text-slate-900 dark:text-white">{term} Months</span>
             </div>
             <input
               type="range"
@@ -263,16 +263,16 @@ export const Loans: React.FC = () => {
               step="12"
               value={term}
               onChange={(e) => setTerm(parseInt(e.target.value))}
-              className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-brand-teal"
+              className="w-full h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-teal-600 dark:accent-cyan-400"
             />
-            <p className="text-[9px] text-slate-400">Number of months scheduled for full amortization</p>
+            <p className="text-[9px] text-slate-400 dark:text-zinc-500">Number of months scheduled for full amortization</p>
           </div>
 
           {/* Extra Payoff */}
           <div className="space-y-1.5">
-            <div className="flex justify-between text-xs font-semibold text-slate-700">
+            <div className="flex justify-between text-xs font-semibold text-slate-700 dark:text-zinc-300">
               <span>Extra Monthly Payment</span>
-              <span className="font-bold text-amber-600">+{formatAmt(extraPayment)}/mo</span>
+              <span className="font-bold text-amber-600 dark:text-amber-400">+{formatAmt(extraPayment)}/mo</span>
             </div>
             <input
               type="range"
@@ -281,9 +281,9 @@ export const Loans: React.FC = () => {
               step={limits.extraStep}
               value={extraPayment}
               onChange={(e) => handleSliderChange(parseInt(e.target.value))}
-              className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-amber-500"
+              className="w-full h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-amber-500"
             />
-            <p className="text-[9px] text-slate-400">Speeds up payoff and saves compound interest</p>
+            <p className="text-[9px] text-slate-400 dark:text-zinc-500">Speeds up payoff and saves compound interest</p>
           </div>
 
         </div>
@@ -292,42 +292,42 @@ export const Loans: React.FC = () => {
         <div className="lg:col-span-2 space-y-6">
           
           {/* Comparative Metrics layout */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             
             {/* Standard Plan */}
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <div className="rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#121217] p-5 shadow-sm">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-400">
                 Standard Monthly Payment
               </p>
-              <p className="text-2xl font-bold font-display text-slate-900 mt-1">
+              <p className="text-2xl font-bold font-display text-slate-900 dark:text-white mt-1">
                 {formatAmt(standard.monthlyPayment)}
               </p>
-              <div className="mt-4 pt-3 border-t border-slate-100 space-y-1.5 text-xs text-slate-600">
+              <div className="mt-4 pt-3 border-t border-slate-100 dark:border-zinc-800 space-y-1.5 text-xs text-slate-600 dark:text-zinc-300">
                 <div className="flex justify-between">
                   <span>Payoff Duration:</span>
-                  <span className="font-bold">{standard.monthsToPay} mos</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{standard.monthsToPay} mos</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Total Interest:</span>
-                  <span className="font-bold">{formatAmt(standard.totalInterest)}</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{formatAmt(standard.totalInterest)}</span>
                 </div>
               </div>
             </div>
 
             {/* Accelerated Plan */}
-            <div className="rounded-2xl border border-amber-200/50 bg-amber-50/20 p-5 shadow-sm">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600">
+            <div className="rounded-2xl border border-amber-200/50 dark:border-amber-800/40 bg-amber-50/20 dark:bg-amber-950/20 p-5 shadow-sm">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
                 Accelerated Payment
               </p>
-              <p className="text-2xl font-bold font-display text-slate-900 mt-1">
+              <p className="text-2xl font-bold font-display text-slate-900 dark:text-white mt-1">
                 {formatAmt(standard.monthlyPayment + extraPayment)}
               </p>
-              <div className="mt-4 pt-3 border-t border-amber-100 space-y-1.5 text-xs text-slate-600">
-                <div className="flex justify-between text-amber-700">
+              <div className="mt-4 pt-3 border-t border-amber-100 dark:border-amber-800/30 space-y-1.5 text-xs text-slate-600 dark:text-zinc-300">
+                <div className="flex justify-between text-amber-700 dark:text-amber-300">
                   <span>Payoff Duration:</span>
                   <span className="font-bold">{accelerated.monthsToPay} mos</span>
                 </div>
-                <div className="flex justify-between text-amber-700">
+                <div className="flex justify-between text-amber-700 dark:text-amber-300">
                   <span>Total Interest:</span>
                   <span className="font-bold">{formatAmt(accelerated.totalInterest)}</span>
                 </div>
@@ -338,14 +338,14 @@ export const Loans: React.FC = () => {
 
           {/* Savings Highlight Box */}
           {extraPayment > 0 && (
-            <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-4 flex items-center justify-between">
+            <div className="rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-sm">
                   <TrendingDown className="h-5 w-5" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-emerald-800">Accelerated Savings</h4>
-                  <p className="text-[11px] text-emerald-700 font-medium">
+                  <h4 className="text-xs font-bold text-emerald-800 dark:text-emerald-300">Accelerated Savings</h4>
+                  <p className="text-[11px] text-emerald-700 dark:text-emerald-300 font-medium">
                     You save <span className="font-bold">{formatAmt(interestSaved)}</span> in compound interest and cut off <span className="font-bold">{monthsSaved} months</span> of loan repayments!
                   </p>
                 </div>
@@ -354,60 +354,60 @@ export const Loans: React.FC = () => {
           )}
 
           {/* AI Loan Payoff Explainer Tool */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm space-y-4">
+          <div className="rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#121217] p-5 shadow-sm space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
-                  <BrainCircuit className="h-4.5 w-4.5 text-brand-teal animate-pulse" />
+                <h4 className="text-xs font-bold text-slate-800 dark:text-zinc-200 uppercase tracking-wide flex items-center gap-1.5">
+                  <BrainCircuit className="h-4.5 w-4.5 text-teal-600 dark:text-cyan-400 animate-pulse" />
                   AI Payoff Explainer
                 </h4>
-                <p className="text-[10px] text-slate-400 mt-0.5">
-                  Let Bob explain how compound interest and monthly accelerations affect your specific numbers.
+                <p className="text-[10px] text-slate-400 dark:text-zinc-400 mt-0.5">
+                  Understand how compound interest and monthly prepayments affect your loan trajectory.
                 </p>
               </div>
               <button
                 onClick={handleRequestCoaching}
                 disabled={isLoadingCoaching}
-                className="rounded-xl bg-brand-teal hover:bg-brand-teal-light text-white text-xs font-bold px-4 py-2 shadow-sm transition-colors cursor-pointer select-none shrink-0"
+                className="rounded-xl bg-teal-600 hover:bg-teal-700 dark:bg-cyan-500 dark:hover:bg-cyan-400 text-white dark:text-slate-950 text-xs font-bold px-4 py-2 shadow-sm transition-colors cursor-pointer select-none shrink-0"
               >
-                {isLoadingCoaching ? "Bob is Analyzing..." : "Explain payoff with AI"}
+                {isLoadingCoaching ? "AI is Analyzing..." : "Explain payoff with AI"}
               </button>
             </div>
 
             {isLoadingCoaching && (
-              <div className="rounded-xl bg-slate-50 border border-slate-100 p-4 flex items-center justify-center gap-2">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-brand-teal" />
-                <span className="text-xs text-slate-500 font-medium">Analyzing loan structure...</span>
+              <div className="rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 p-4 flex items-center justify-center gap-2">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-teal-600" />
+                <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">Analyzing loan structure...</span>
               </div>
             )}
 
             {coachingError && (
-              <div className="rounded-xl bg-rose-50 border border-rose-100 p-3 text-xs text-rose-700 font-medium">
+              <div className="rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-800 p-3 text-xs text-rose-700 dark:text-rose-300 font-medium">
                 {coachingError}
               </div>
             )}
 
             {coachingText && (
-              <div className="rounded-xl bg-teal-50/30 border border-teal-100/50 p-4 text-xs text-slate-700 leading-relaxed font-medium whitespace-pre-line animate-in fade-in slide-in-from-top-1 duration-200 font-sans">
+              <div className="rounded-xl bg-teal-50/30 dark:bg-zinc-900/80 border border-teal-100/50 dark:border-zinc-800 p-4 text-xs text-slate-700 dark:text-zinc-200 leading-relaxed font-medium whitespace-pre-line animate-in fade-in slide-in-from-top-1 duration-200 font-sans">
                 {coachingText}
               </div>
             )}
           </div>
 
           {/* Line Chart comparing paths */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
-            <h3 className="font-display text-sm font-bold text-slate-800 uppercase tracking-wide mb-4">
+          <div className="rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#121217] p-6 shadow-sm">
+            <h3 className="font-display text-sm font-bold text-slate-800 dark:text-zinc-200 uppercase tracking-wide mb-4">
               Payoff Timeline Trajectory (Balance over months)
             </h3>
             <div className="h-56 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-                  <XAxis dataKey="month" fontSize={9} stroke="#64748B" />
-                  <YAxis fontSize={9} stroke="#64748B" />
-                  <Tooltip contentStyle={{ fontSize: "10px", borderRadius: "8px" }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
+                  <XAxis dataKey="month" fontSize={9} stroke="#94A3B8" />
+                  <YAxis fontSize={9} stroke="#94A3B8" />
+                  <Tooltip contentStyle={{ fontSize: "10px", borderRadius: "8px", backgroundColor: "#1e293b", color: "#fff", borderColor: "#334155" }} />
                   <Line type="monotone" dataKey="Standard" stroke="#94A3B8" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="Accelerated" stroke="#4F46E5" strokeWidth={2.5} dot={false} />
+                  <Line type="monotone" dataKey="Accelerated" stroke="#10B981" strokeWidth={2.5} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -417,10 +417,10 @@ export const Loans: React.FC = () => {
       </div>
 
       {/* Glossary Glossary Terms */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
-        <h3 className="font-display text-sm font-bold text-slate-800 uppercase tracking-wide mb-3 flex items-center gap-1.5">
-          <BookOpen className="h-4.5 w-4.5 text-brand-teal" />
-          Bob's Financial Literacy Glossary
+      <div className="rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#121217] p-5 shadow-sm">
+        <h3 className="font-display text-sm font-bold text-slate-800 dark:text-zinc-200 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+          <BookOpen className="h-4.5 w-4.5 text-teal-600 dark:text-cyan-400" />
+          Financial Literacy Glossary
         </h3>
         
         <div className="flex flex-wrap gap-2 mb-4">
@@ -430,8 +430,8 @@ export const Loans: React.FC = () => {
               onClick={() => setSelectedTerm(g.term === selectedTerm ? null : g.term)}
               className={`rounded-xl border px-3 py-2 text-xs font-bold transition-all cursor-pointer ${
                 g.term === selectedTerm
-                  ? "bg-brand-teal text-white border-brand-teal"
-                  : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                  ? "bg-teal-600 dark:bg-cyan-500 text-white dark:text-slate-950 border-teal-600 dark:border-cyan-500"
+                  : "bg-slate-50 dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-800"
               }`}
             >
               {g.term}
@@ -440,13 +440,13 @@ export const Loans: React.FC = () => {
         </div>
 
         {selectedTerm && (
-          <div className="rounded-xl bg-teal-50/50 border border-teal-100 p-4 flex items-start gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand-teal text-white">
+          <div className="rounded-xl bg-teal-50/50 dark:bg-zinc-900 border border-teal-100 dark:border-zinc-800 p-4 flex items-start gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-teal-600 dark:bg-cyan-500 text-white dark:text-slate-950">
               <Sparkles className="h-4 w-4" />
             </div>
             <div>
-              <p className="text-xs font-bold text-brand-teal uppercase tracking-wider mb-0.5">{selectedTerm}</p>
-              <p className="text-xs text-slate-700 leading-relaxed font-medium">
+              <p className="text-xs font-bold text-teal-600 dark:text-cyan-400 uppercase tracking-wider mb-0.5">{selectedTerm}</p>
+              <p className="text-xs text-slate-700 dark:text-zinc-300 leading-relaxed font-medium">
                 {glossary.find(g => g.term === selectedTerm)?.def}
               </p>
             </div>

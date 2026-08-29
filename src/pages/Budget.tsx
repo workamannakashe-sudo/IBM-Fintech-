@@ -69,19 +69,19 @@ export const Budget: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300 text-slate-900 dark:text-white">
       
       {/* Title */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900 font-display">Budget Envelopes & Velocity</h1>
-        <p className="text-sm text-slate-500">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white font-display">Budget Envelopes & Velocity</h1>
+        <p className="text-sm text-slate-500 dark:text-zinc-400">
           Configure category envelopes, simulate daily burn rates, and track milestones towards savings targets.
         </p>
       </div>
 
       {/* Burn Rate Velocity Simulator Section */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
-        <h3 className="font-display text-sm font-bold text-slate-800 uppercase tracking-wide mb-4 flex items-center gap-1.5">
+      <div className="rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#121217] p-6 shadow-sm">
+        <h3 className="font-display text-sm font-bold text-slate-800 dark:text-zinc-200 uppercase tracking-wide mb-4 flex items-center gap-1.5">
           <Flame className="h-5 w-5 text-orange-500 animate-pulse" />
           Spending Velocity & Safe Burn Monitor
         </h3>
@@ -89,26 +89,26 @@ export const Budget: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           
           {/* Burn rate info */}
-          <div className="space-y-1 bg-slate-50 rounded-xl p-4 border border-slate-100">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Current Daily Burn Rate</span>
-            <p className="text-2xl font-bold font-display text-slate-900">{formatAmt(dailyBurnRate)}/day</p>
-            <p className="text-[10px] text-slate-500 font-medium">Target safe burn: {formatAmt(safeDailyBurnRate)}/day</p>
+          <div className="space-y-1 bg-slate-50 dark:bg-zinc-900 rounded-xl p-4 border border-slate-100 dark:border-zinc-800">
+            <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-400 uppercase tracking-wider">Current Daily Burn Rate</span>
+            <p className="text-2xl font-bold font-display text-slate-900 dark:text-white">{formatAmt(dailyBurnRate)}/day</p>
+            <p className="text-[10px] text-slate-500 dark:text-zinc-400 font-medium">Target safe burn: {formatAmt(safeDailyBurnRate)}/day</p>
           </div>
 
           {/* Burnout projection */}
-          <div className="space-y-1 bg-slate-50 rounded-xl p-4 border border-slate-100">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Projected Budget Burnout</span>
-            <p className={`text-2xl font-bold font-display ${projectedBurnoutDay.includes("⚠️") || projectedBurnoutDay.includes("Safe") ? "text-brand-teal" : "text-orange-500"}`}>
+          <div className="space-y-1 bg-slate-50 dark:bg-zinc-900 rounded-xl p-4 border border-slate-100 dark:border-zinc-800">
+            <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-400 uppercase tracking-wider">Projected Budget Burnout</span>
+            <p className={`text-2xl font-bold font-display ${projectedBurnoutDay.includes("⚠️") || projectedBurnoutDay.includes("Safe") ? "text-teal-600 dark:text-cyan-400" : "text-orange-500"}`}>
               {projectedBurnoutDay}
             </p>
-            <p className="text-[10px] text-slate-500 font-medium">Predicted exhaustion day of envelopes</p>
+            <p className="text-[10px] text-slate-500 dark:text-zinc-400 font-medium">Predicted exhaustion day of envelopes</p>
           </div>
 
           {/* Burn Rate Simulation Slider */}
-          <div className="space-y-1.5 bg-slate-50 rounded-xl p-4 border border-slate-100">
-            <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+          <div className="space-y-1.5 bg-slate-50 dark:bg-zinc-900 rounded-xl p-4 border border-slate-100 dark:border-zinc-800">
+            <div className="flex justify-between text-[10px] font-bold text-slate-400 dark:text-zinc-400 uppercase tracking-wider">
               <span>Velocity Multiplier</span>
-              <span className="text-orange-600 font-extrabold">{burnRateMultiplier.toFixed(1)}x</span>
+              <span className="text-orange-600 dark:text-orange-400 font-extrabold">{burnRateMultiplier.toFixed(1)}x</span>
             </div>
             <input
               type="range"
@@ -117,23 +117,23 @@ export const Budget: React.FC = () => {
               step="0.1"
               value={burnRateMultiplier}
               onChange={(e) => setBurnRateMultiplier(parseFloat(e.target.value))}
-              className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-orange-500 mt-2"
+              className="w-full h-1.5 bg-slate-200 dark:bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-orange-500 mt-2"
             />
-            <p className="text-[9px] text-slate-400">Drag to simulate midterm or holiday spending spikes</p>
+            <p className="text-[9px] text-slate-400 dark:text-zinc-500">Drag to simulate midterm or holiday spending spikes</p>
           </div>
 
         </div>
 
         {/* Action feedback info */}
         {dailyBurnRate > safeDailyBurnRate ? (
-          <div className="rounded-xl bg-orange-50 border border-orange-200 p-4 flex items-center gap-3 text-orange-800">
+          <div className="rounded-xl bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800/60 p-4 flex items-center gap-3 text-orange-800 dark:text-orange-300">
             <AlertTriangle className="h-5 w-5 text-orange-500 shrink-0" />
             <p className="text-xs font-semibold leading-normal">
               Spending Velocity Alert: Your daily burn rate is exceeding the safe threshold. Lock down subscriptions or cook in dorms to stretch your envelope.
             </p>
           </div>
         ) : (
-          <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 flex items-center gap-3 text-emerald-800">
+          <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 p-4 flex items-center gap-3 text-emerald-800 dark:text-emerald-300">
             <ShieldCheck className="h-5 w-5 text-emerald-500 shrink-0" />
             <p className="text-xs font-semibold leading-normal">
               Safe Burn Rate: Your spending velocity is paced perfectly! Your cash reserve is safe for the rest of the month.
@@ -145,9 +145,9 @@ export const Budget: React.FC = () => {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         
         {/* Envelope Sliders card */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm space-y-4">
-          <h3 className="font-display text-sm font-bold text-slate-800 uppercase tracking-wide border-b border-slate-100 pb-3 flex items-center gap-1.5">
-            <Percent className="h-4.5 w-4.5 text-brand-teal" />
+        <div className="rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#121217] p-6 shadow-sm space-y-4">
+          <h3 className="font-display text-sm font-bold text-slate-800 dark:text-zinc-200 uppercase tracking-wide border-b border-slate-100 dark:border-zinc-800 pb-3 flex items-center gap-1.5">
+            <Percent className="h-4.5 w-4.5 text-teal-600 dark:text-cyan-400" />
             Envelope Budget Allocations
           </h3>
 
@@ -159,21 +159,21 @@ export const Budget: React.FC = () => {
               return (
                 <div key={cat} className="space-y-1.5">
                   <div className="flex justify-between text-xs font-semibold">
-                    <span className="text-slate-800 font-bold">{cat}</span>
-                    <span className="text-slate-500 font-medium">
-                      {formatAmt(spent)} / <span className="text-slate-800 font-bold">{formatAmt(limit)}</span>
+                    <span className="text-slate-800 dark:text-zinc-200 font-bold">{cat}</span>
+                    <span className="text-slate-500 dark:text-zinc-400 font-medium">
+                      {formatAmt(spent)} / <span className="text-slate-800 dark:text-white font-bold">{formatAmt(limit)}</span>
                     </span>
                   </div>
                   
                   {/* Progress bar */}
-                  <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                  <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-zinc-800 overflow-hidden">
                     <div 
                       className={`h-full transition-all duration-300 ${
                         spent > limit 
                           ? "bg-rose-500" 
                           : percentage > 75 
                           ? "bg-orange-500" 
-                          : "bg-brand-teal"
+                          : "bg-teal-600 dark:bg-cyan-500"
                       }`}
                       style={{ width: `${percentage}%` }}
                     />
@@ -188,9 +188,9 @@ export const Budget: React.FC = () => {
                       step={currency === "INR" ? "500" : "10"}
                       value={limit}
                       onChange={(e) => updateBudgetLimit(cat, parseInt(e.target.value))}
-                      className="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-brand-teal"
+                      className="w-full h-1 bg-slate-200 dark:bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-teal-600 dark:accent-cyan-400"
                     />
-                    <span className="text-[10px] font-bold text-slate-400 w-10 text-right">
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 w-10 text-right">
                       Edit
                     </span>
                   </div>
@@ -201,18 +201,18 @@ export const Budget: React.FC = () => {
         </div>
 
         {/* Milestone Goals card */}
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm flex flex-col justify-between">
+        <div className="rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white dark:bg-[#121217] p-6 shadow-sm flex flex-col justify-between">
           <div className="space-y-4">
             
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="font-display text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
-                <Milestone className="h-4.5 w-4.5 text-brand-teal" />
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
+              <h3 className="font-display text-sm font-bold text-slate-800 dark:text-zinc-200 uppercase tracking-wide flex items-center gap-1.5">
+                <Milestone className="h-4.5 w-4.5 text-teal-600 dark:text-cyan-400" />
                 Milestone Savings Targets
               </h3>
               <button
                 onClick={() => setShowGoalForm(!showGoalForm)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-50 hover:text-slate-700 transition-all cursor-pointer"
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-50 dark:hover:bg-zinc-800 hover:text-slate-700 dark:hover:text-white transition-all cursor-pointer"
               >
                 <Plus className="h-4 w-4" />
               </button>
@@ -220,21 +220,21 @@ export const Budget: React.FC = () => {
 
             {/* Form */}
             {showGoalForm && (
-              <form onSubmit={handleAddGoalSubmit} className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+              <form onSubmit={handleAddGoalSubmit} className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/60 p-4 space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Goal Name</label>
+                    <label className="block text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1">Goal Name</label>
                     <input
                       type="text"
                       required
                       placeholder="e.g. Study Abroad"
                       value={newGoalName}
                       onChange={(e) => setNewGoalName(e.target.value)}
-                      className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs focus:outline-none focus:border-brand-teal"
+                      className="w-full rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-900 dark:text-white px-2.5 py-1.5 text-xs focus:outline-none focus:border-teal-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                    <label className="block text-[10px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1">
                       Target ({currency === "INR" ? "₹" : "$"})
                     </label>
                     <input
@@ -244,7 +244,7 @@ export const Budget: React.FC = () => {
                       placeholder={currency === "INR" ? "50000" : "1500"}
                       value={newGoalTarget}
                       onChange={(e) => setNewGoalTarget(e.target.value)}
-                      className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs focus:outline-none focus:border-brand-teal"
+                      className="w-full rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-900 dark:text-white px-2.5 py-1.5 text-xs focus:outline-none focus:border-teal-500"
                     />
                   </div>
                 </div>
@@ -253,13 +253,13 @@ export const Budget: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setShowGoalForm(false)}
-                    className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-bold text-slate-600 hover:bg-slate-50"
+                    className="rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-1.5 text-[10px] font-bold text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-700 cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="rounded-lg bg-brand-teal text-white px-3 py-1.5 text-[10px] font-bold hover:bg-brand-teal-light shadow-sm"
+                    className="rounded-lg bg-teal-600 dark:bg-cyan-500 text-white dark:text-slate-950 px-3 py-1.5 text-[10px] font-bold hover:bg-teal-700 dark:hover:bg-cyan-400 shadow-sm cursor-pointer"
                   >
                     Save Target
                   </button>
@@ -270,29 +270,29 @@ export const Budget: React.FC = () => {
             {/* List */}
             <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1">
               {goals.length === 0 ? (
-                <p className="text-xs text-slate-400 text-center py-6">No active goals configured.</p>
+                <p className="text-xs text-slate-400 dark:text-zinc-500 text-center py-6">No active goals configured.</p>
               ) : (
                 goals.map((g) => {
                   const percent = g.target > 0 ? Math.min(100, Math.round((g.current / g.target) * 100)) : 0;
                   return (
-                    <div key={g.id} className="space-y-1.5 border border-slate-100 rounded-xl p-3 bg-slate-50/30">
+                    <div key={g.id} className="space-y-1.5 border border-slate-100 dark:border-zinc-800 rounded-xl p-3 bg-slate-50/30 dark:bg-zinc-900/40">
                       
                       {/* Name/Edit */}
                       <div className="flex justify-between items-center text-xs">
                         <div>
-                          <span className="font-bold text-slate-800">{g.name}</span>
-                          <span className="text-[10px] text-slate-400 ml-1.5">({percent}%)</span>
+                          <span className="font-bold text-slate-800 dark:text-zinc-200">{g.name}</span>
+                          <span className="text-[10px] text-slate-400 dark:text-zinc-500 ml-1.5">({percent}%)</span>
                         </div>
                         <button
                           onClick={() => deleteSavingsGoal(g.id)}
-                          className="text-slate-400 hover:text-rose-600 transition-colors"
+                          className="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
 
                       {/* Progress bar */}
-                      <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                      <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-zinc-800 overflow-hidden">
                         <div 
                           className="h-full bg-emerald-500 transition-all duration-300"
                           style={{ width: `${percent}%` }}
@@ -308,9 +308,9 @@ export const Budget: React.FC = () => {
                           step={currency === "INR" ? "500" : "10"}
                           value={g.current}
                           onChange={(e) => updateGoalSavings(g.id, parseInt(e.target.value))}
-                          className="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                          className="w-full h-1 bg-slate-200 dark:bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                         />
-                        <span className="text-[10px] font-bold text-slate-600 shrink-0 w-24 text-right">
+                        <span className="text-[10px] font-bold text-slate-600 dark:text-zinc-400 shrink-0 w-24 text-right">
                           {formatAmt(g.current)} / {formatAmt(g.target)}
                         </span>
                       </div>
