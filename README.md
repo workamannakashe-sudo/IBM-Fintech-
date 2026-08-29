@@ -47,15 +47,16 @@
 
 ## 📸 Visual Demo Showcase
 
-> Visual assets placed in [`docs/`](./docs/):
+### 1. 🎯 Budget Envelopes & Velocity Burn Monitor
+Interactive envelope budget allocations, real-time daily burn rate tracker (`₹399/day`), safe burn velocity indicators, and milestone savings targets with floating AI FinBuddy assistant.
+![Budget Envelopes & Velocity](./docs/screenshot-budget-envelopes.png)
 
-### 1. Executive FinTech Dashboard (Light & Dark Mode)
-![Dashboard](./docs/screenshot-dashboard.png)
-
-### 2. "Can I Afford This?" Instant Decision Engine
+### 2. 🛍️ "Can I Afford This?" Instant Decision Engine
+Real-time simulation of discretionary balance drops (`₹426 → ₹0`), monthly spending limit usage, and intelligent mathematical affordability verdicts.
 !["Can I Afford This?" Verdict](./docs/screenshot-affordability.png)
 
-### 3. AI Scholarship & Government Scheme Matcher
+### 3. 🎓 AI Financial Schemes & Scholarship Matcher
+Automated student profile scheme matching (PMSS, Central Sector CSSS, Vidya Lakshmi Education Loan Scheme) with direct government portal integration.
 ![Scholarship Matcher](./docs/screenshot-scholarships.png)
 
 ---
