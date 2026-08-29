@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { FinancialProvider, useFinancial } from "./context/FinancialContext";
 import { GamificationProvider } from "./context/GamificationContext";
-import { Navbar } from "./components/Navbar";
+import { ThemeProvider } from "./context/ThemeContext";
+import { Sidebar } from "./components/Sidebar";
+import { TopHeader } from "./components/TopHeader";
 import { BobChatWidget } from "./components/BobChatWidget";
 import { QuickLogFab } from "./components/QuickLogFab";
 import { QuickLogModal } from "./components/QuickLogModal";
@@ -21,6 +23,7 @@ import { Advisor } from "./pages/Advisor";
 function AppContent() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [quickLogOpen, setQuickLogOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { isAuthenticated } = useFinancial();
 
   if (!isAuthenticated) {
@@ -51,14 +54,30 @@ function AppContent() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col pb-24">
-      {/* Universal Sticky Top Nav */}
-      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
+    <div className="min-h-screen bg-[#f8fafc] dark:bg-[#09090b] text-slate-900 dark:text-white flex transition-colors duration-300">
+      
+      {/* Left Sidebar Navigation */}
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onOpenQuickLog={() => setQuickLogOpen(true)}
+        isOpenMobile={mobileMenuOpen}
+        onCloseMobile={() => setMobileMenuOpen(false)}
+      />
 
-      {/* Main Page Content Wrapper */}
-      <main className="flex-1 mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
-        {renderActivePage()}
-      </main>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 lg:ml-64 transition-all duration-300">
+        <main className="flex-1 w-full max-w-[1240px] mx-auto p-4 sm:p-6 lg:p-8 pb-28">
+          {/* Top Universal Header */}
+          <TopHeader
+            onOpenMobileMenu={() => setMobileMenuOpen(true)}
+            setActiveTab={setActiveTab}
+          />
+
+          {/* Active Sub-page Component */}
+          {renderActivePage()}
+        </main>
+      </div>
 
       {/* Floating Action Button (FAB) for rapid logs */}
       <QuickLogFab onClick={() => setQuickLogOpen(true)} />
@@ -77,11 +96,13 @@ function AppContent() {
 
 function App() {
   return (
-    <FinancialProvider>
-      <GamificationProvider>
-        <AppContent />
-      </GamificationProvider>
-    </FinancialProvider>
+    <ThemeProvider>
+      <FinancialProvider>
+        <GamificationProvider>
+          <AppContent />
+        </GamificationProvider>
+      </FinancialProvider>
+    </ThemeProvider>
   );
 }
 
