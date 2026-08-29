@@ -57,12 +57,26 @@ export const BobChatWidget: React.FC<BobChatWidgetProps> = ({ setActiveTab }) =>
     if (isOpen) setTimeout(() => inputRef.current?.focus(), 100);
   }, [isOpen]);
 
-  const actionChips = [
-    { label: "🔥 Burn rate?", query: "How is my burn rate and spending this month?" },
-    { label: "💡 Save tips", query: "Give me 3 practical tips to save money this month." },
-    { label: "🎓 Scholarships?", query: "Which scholarships am I likely eligible for?", redirect: "scholarships" },
-    { label: "🤔 Can I buy phone?", query: "Can I afford to buy a new smartphone worth ₹18,000?" },
-  ];
+  const actionChips = preferredLanguage === "hi"
+    ? [
+        { label: "🔥 खर्च दर (Burn rate)", query: "मेरा इस महीने का खर्च और daily burn rate कैसा चल रहा है?" },
+        { label: "💡 बचत टिप्स", query: "इस महीने पैसे बचाने के 3 आसान और असरदार तरीके बताएं।" },
+        { label: "🎓 सरकारी योजनाएं", query: "मेरी प्रोफाइल के लिए कौन सी छात्रवृत्तियां उपलब्ध हैं?", redirect: "scholarships" },
+        { label: "🤔 नया फोन खरीदूं?", query: "क्या मैं ₹15,000 का नया स्मार्टफोन अभी खरीद सकता हूँ?" },
+      ]
+    : preferredLanguage === "mr"
+    ? [
+        { label: "🔥 खर्च वेग (Burn rate)", query: "माझा या महिन्याचा दैनंदिन खर्च आणि daily burn rate कसा चालू आहे?" },
+        { label: "💡 बचतीचे उपाय", query: "या महिन्यात पैसे वाचवण्यासाठी ३ सोपे उपाय सांगा." },
+        { label: "🎓 शिष्यवृत्ती", query: "माझ्या प्रोफाइलनुसार मला कोणत्या शिष्यवृत्ती मिळू शकतात?", redirect: "scholarships" },
+        { label: "🤔 फोन खरेदी करू का?", query: "मी ₹१५,००० चा नवीन स्मार्टफोन आता खरेदी करू शकेन का?" },
+      ]
+    : [
+        { label: "🔥 Burn rate?", query: "How is my burn rate and spending this month?" },
+        { label: "💡 Save tips", query: "Give me 3 practical tips to save money this month." },
+        { label: "🎓 Scholarships?", query: "Which scholarships am I likely eligible for?", redirect: "scholarships" },
+        { label: "🤔 Can I buy phone?", query: "Can I afford to buy a new smartphone worth ₹18,000?" },
+      ];
 
   const persistToDB = async (role: "user" | "bob", content: string) => {
     if (!isSupabaseConfigured() || !dbProfileId) return;

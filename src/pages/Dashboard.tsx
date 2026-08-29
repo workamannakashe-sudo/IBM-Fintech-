@@ -175,24 +175,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onOpenQuickL
       {/* Welcome Title Block */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 font-display">
             Financial Command Center
           </h1>
           <p className="text-sm text-slate-500">
-            Manage campus spending, review budget envelopes, and track health score progression.
+            Track student spending, manage monthly budget envelopes, and build healthy financial habits.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <button
             onClick={handleDownloadPDF}
-            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-700 transition-all select-none"
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-700 transition-all select-none shadow-xs"
           >
-            <Download className="h-4 w-4" />
+            <Download className="h-4 w-4 text-orange-500" />
             Download PDF Report
           </button>
           <button
             onClick={onOpenQuickLog}
-            className="flex items-center gap-1.5 rounded-xl bg-brand-teal text-white hover:bg-brand-teal-light px-4 py-2.5 text-xs font-bold shadow-md shadow-teal-700/10 transition-all select-none"
+            className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:from-orange-400 hover:to-amber-400 px-4 py-2.5 text-xs font-bold shadow-md shadow-orange-500/25 transition-all select-none"
           >
             <ArrowUpRight className="h-4 w-4" />
             Log Expense
@@ -364,41 +364,44 @@ export const Dashboard: React.FC<DashboardProps> = ({ setActiveTab, onOpenQuickL
 
       {/* Area charts section */}
       <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
-        <h3 className="font-display text-sm font-bold text-slate-800 uppercase tracking-wide mb-4">
-          Accumulative Spent Trajectory (August 2026)
+        <h3 className="font-display text-sm font-bold text-slate-800 uppercase tracking-wide mb-4 flex items-center justify-between">
+          <span>Monthly Spending Trajectory</span>
+          <span className="text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded-full px-2.5 py-0.5">
+            {new Date().toLocaleString("en-US", { month: "long", year: "numeric" })}
+          </span>
         </h3>
         <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorSpent" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.2}/>
-                  <stop offset="95%" stopColor="#4F46E5" stopOpacity={0.0}/>
+                  <stop offset="5%" stopColor="#F97316" stopOpacity={0.25}/>
+                  <stop offset="95%" stopColor="#F97316" stopOpacity={0.0}/>
                 </linearGradient>
               </defs>
               <XAxis dataKey="name" fontSize={10} stroke="#64748B" />
               <YAxis fontSize={10} stroke="#64748B" />
-              <Tooltip contentStyle={{ fontSize: "11px", borderRadius: "8px", borderColor: "#E2E8F0" }} />
-              <Area type="monotone" dataKey="Spent" stroke="#4F46E5" strokeWidth={2.5} fillOpacity={1} fill="url(#colorSpent)" />
+              <Tooltip contentStyle={{ fontSize: "11px", borderRadius: "12px", borderColor: "#FED7AA", boxShadow: "0 4px 12px rgba(249,115,22,0.1)" }} />
+              <Area type="monotone" dataKey="Spent" stroke="#F97316" strokeWidth={2.5} fillOpacity={1} fill="url(#colorSpent)" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
       </div>
 
       {/* Command Actions Drawer shortcuts */}
-      <div className="rounded-2xl border border-slate-200/80 bg-slate-50 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="rounded-2xl border border-orange-200/80 bg-gradient-to-r from-orange-50/60 to-amber-50/60 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-100 text-teal-800">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 text-white shadow-xs">
             <ShieldQuestion className="h-5 w-5" />
           </div>
           <div>
             <h4 className="text-sm font-bold text-slate-800">Simulate Discretionary Expenses</h4>
-            <p className="text-xs text-slate-500">Check if your liquid cash can support buying items prior to paying bills.</p>
+            <p className="text-xs text-slate-500">Check with IBM Bob whether your liquid cash supports buying an item before spending.</p>
           </div>
         </div>
         <button
           onClick={() => setActiveTab("affordability")}
-          className="rounded-xl border border-teal-200 bg-white hover:bg-teal-50 px-4 py-2 text-xs font-bold text-brand-teal transition-all select-none self-start md:self-auto"
+          className="rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-white px-4 py-2 text-xs font-bold shadow-xs transition-all select-none self-start md:self-auto cursor-pointer"
         >
           Can I Afford This?
         </button>

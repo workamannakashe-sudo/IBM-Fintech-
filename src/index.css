@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 @import "tailwindcss";
 
@@ -6,13 +6,13 @@
   --font-display: 'Outfit', sans-serif;
   --font-sans: 'Plus Jakarta Sans', sans-serif;
   
-  /* BudgetMitra Brand: Saffron Orange + Amber + Teal */
-  --color-brand-teal: #F97316;       /* orange-500 — primary brand */
+  /* BudgetMitra Brand: Saffron Orange + Amber Gold + Royal Emerald */
+  --color-brand-teal: #F97316;       /* vibrant orange-500 */
   --color-brand-teal-light: #FB923C; /* orange-400 */
   --color-accent-gold: #D97706;      /* amber-600 */
   --color-accent-amber: #F59E0B;     /* amber-500 */
 
-  /* Redefine teal tokens to BudgetMitra orange shades */
+  /* Redefine teal tokens to BudgetMitra warm orange & amber shades */
   --color-teal-50:  #FFF7ED;
   --color-teal-100: #FFEDD5;
   --color-teal-200: #FED7AA;
@@ -34,13 +34,13 @@ body {
   margin: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* BudgetMitra ambient warm glow */
+  /* BudgetMitra dynamic ambient glow background */
   background-image: 
-    radial-gradient(at 0% 0%, rgba(249, 115, 22, 0.05) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(245, 158, 11, 0.03) 0px, transparent 50%);
+    radial-gradient(at 0% 0%, rgba(249, 115, 22, 0.08) 0px, transparent 45%),
+    radial-gradient(at 100% 0%, rgba(245, 158, 11, 0.06) 0px, transparent 40%),
+    radial-gradient(at 50% 100%, rgba(99, 102, 241, 0.04) 0px, transparent 50%);
   background-attachment: fixed;
 }
-
 
 #root {
   display: block;
@@ -66,16 +66,32 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94A3B8;
+  background: #F97316;
 }
 
-/* Custom CSS micro-interaction variables */
+/* Premium Card & Visual Utilities */
 .card-hover-effect {
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .card-hover-effect:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.08), 0 4px 6px -2px rgba(79, 70, 229, 0.02);
-  border-color: rgba(79, 70, 229, 0.15);
+  box-shadow: 0 12px 24px -6px rgba(249, 115, 22, 0.12), 0 4px 6px -2px rgba(249, 115, 22, 0.04);
+  border-color: rgba(249, 115, 22, 0.3);
 }
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+.glow-orange {
+  box-shadow: 0 4px 20px -2px rgba(249, 115, 22, 0.35);
+}
+
+.glow-emerald {
+  box-shadow: 0 4px 20px -2px rgba(16, 185, 129, 0.35);
+}
+
 

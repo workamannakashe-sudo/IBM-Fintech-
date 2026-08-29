@@ -122,16 +122,40 @@ export async function askAffordabilityBob(params: {
 
     if (itemPrice > fc.remainingBudgetThisMonth) {
       decision = "NO";
-      reasoning = `This purchase of ₹${itemPrice.toFixed(0)} exceeds your remaining budget of ₹${fc.remainingBudgetThisMonth.toFixed(0)} with ${fc.daysLeftInMonth} days left. Buying this would leave you with negative funds.`;
-      suggested_action = "Wait until next month's allowance arrives or explore the Scholarship Matcher for emergency funds.";
+      if (preferredLanguage === "hi") {
+        reasoning = `यह ₹${itemPrice.toFixed(0)} की खरीदारी आपके शेष बजट (₹${fc.remainingBudgetThisMonth.toFixed(0)}) से अधिक है, जबकि महीने में अभी ${fc.daysLeftInMonth} दिन बाकी हैं। इसे खरीदने से आपके पास आवश्यक खर्चों के लिए पैसे खत्म हो जाएंगे।`;
+        suggested_action = "अगले महीने के पॉकेट मनी या भत्ते का इंतजार करें, या आवश्यक वित्तीय सहायता के लिए स्कॉलरशिप मैच टैब देखें।";
+      } else if (preferredLanguage === "mr") {
+        reasoning = `ही ₹${itemPrice.toFixed(0)} ची खरेदी तुमच्या शिल्लक बजेटपेक्षा (₹${fc.remainingBudgetThisMonth.toFixed(0)}) जास्त आहे आणि चालू महिन्यात अजून ${fc.daysLeftInMonth} दिवस शिल्लक आहेत. हे खरेदी केल्यास तुमचे बजेट संपेल.`;
+        suggested_action = "पुढील महिन्याच्या पॉकेट मनीची वाट पाहा किंवा आपत्कालीन मदतीसाठी शिष्यवृत्ती विभाग तपासा.";
+      } else {
+        reasoning = `This purchase of ₹${itemPrice.toFixed(0)} exceeds your remaining budget of ₹${fc.remainingBudgetThisMonth.toFixed(0)} with ${fc.daysLeftInMonth} days left. Buying this would leave you with negative funds.`;
+        suggested_action = "Wait until next month's allowance arrives or explore the Scholarship Matcher for emergency funds.";
+      }
     } else if (cushion < fc.dailyBurnRate * 5 || projectedSpend > fc.remainingBudgetThisMonth - itemPrice) {
       decision = "CAUTION";
-      reasoning = `You can technically afford this (₹${itemPrice.toFixed(0)}), but it leaves only ₹${cushion.toFixed(0)} — less than 5 days of your daily burn rate (₹${fc.dailyBurnRate.toFixed(0)}/day). You have ${fc.daysLeftInMonth} days left this month.`;
-      suggested_action = "Consider waiting 3–5 days or splitting the cost with a friend/roommate.";
+      if (preferredLanguage === "hi") {
+        reasoning = `आप इसे तकनीकी रूप से खरीद सकते हैं (₹${itemPrice.toFixed(0)}), लेकिन इसके बाद केवल ₹${cushion.toFixed(0)} बचेंगे — जो आपके 5 दिनों के दैनिक खर्च (₹${fc.dailyBurnRate.toFixed(0)}/दिन) से भी कम है। महीने में अभी ${fc.daysLeftInMonth} दिन बाकी हैं।`;
+        suggested_action = "कम से कम 3-5 दिन प्रतीक्षा करें (48-घंटे का नियम) या रूममेट/मित्र के साथ खर्च साझा करने का विचार करें।";
+      } else if (preferredLanguage === "mr") {
+        reasoning = `तुम्ही तांत्रिकदृष्ट्या हे घेऊ शकता (₹${itemPrice.toFixed(0)}), पण यानंतर फक्त ₹${cushion.toFixed(0)} उरतील — जे तुमच्या 5 दिवसांच्या दैनंदिन खर्चापेक्षा (₹${fc.dailyBurnRate.toFixed(0)}/दिवस) कमी आहे. अजून ${fc.daysLeftInMonth} दिवस बाकी आहेत.`;
+        suggested_action = "किमान ३ ते ५ दिवस थांबा किंवा मित्रासोबत खर्च वाटून घेण्याचा प्रयत्न करा.";
+      } else {
+        reasoning = `You can technically afford this (₹${itemPrice.toFixed(0)}), but it leaves only ₹${cushion.toFixed(0)} — less than 5 days of your daily burn rate (₹${fc.dailyBurnRate.toFixed(0)}/day). You have ${fc.daysLeftInMonth} days left this month.`;
+        suggested_action = "Consider waiting 3–5 days or splitting the cost with a friend/roommate.";
+      }
     } else {
       decision = "YES";
-      reasoning = `Great news! ₹${itemPrice.toFixed(0)} fits comfortably in your budget. You'll still have ₹${cushion.toFixed(0)} remaining with ${fc.daysLeftInMonth} days to go — well above your daily burn of ₹${fc.dailyBurnRate.toFixed(0)}.`;
-      suggested_action = "Go ahead — but log this expense immediately to keep your budget tracking accurate.";
+      if (preferredLanguage === "hi") {
+        reasoning = `शानदार खबर! ₹${itemPrice.toFixed(0)} आपके बजट में बहुत आराम से फिट होता है। खरीदारी के बाद भी आपके पास ₹${cushion.toFixed(0)} सुरक्षित बचेंगे और ${fc.daysLeftInMonth} दिन शेष हैं — जो आपके दैनिक खर्च (₹${fc.dailyBurnRate.toFixed(0)}) से कहीं अधिक है।`;
+        suggested_action = "आप बेझिझक खरीदारी कर सकते हैं — पर अपने बजट को ट्रैक रखने के लिए इस खर्च को तुरंत ऐप में दर्ज करें।";
+      } else if (preferredLanguage === "mr") {
+        reasoning = `उत्तम बातमी! ₹${itemPrice.toFixed(0)} तुमच्या मासिक बजेटमध्ये अगदी सहज बसते. खरेदीनंतरही तुमच्याकडे ₹${cushion.toFixed(0)} शिल्लक राहतील आणि ${fc.daysLeftInMonth} दिवस बाकी आहेत — जे दैनंदिन खर्चापेक्षा जास्त आहे.`;
+        suggested_action = "नक्की खरेदी करा — पण बजेट अचूक राहण्यासाठी हा खर्च लगेच ॲपमध्ये नोंदवून ठेवा.";
+      } else {
+        reasoning = `Great news! ₹${itemPrice.toFixed(0)} fits comfortably in your budget. You'll still have ₹${cushion.toFixed(0)} remaining with ${fc.daysLeftInMonth} days to go — well above your daily burn of ₹${fc.dailyBurnRate.toFixed(0)}.`;
+        suggested_action = "Go ahead — but log this expense immediately to keep your budget tracking accurate.";
+      }
     }
 
     return { decision, reasoning, suggested_action };
@@ -146,10 +170,10 @@ export async function askAffordabilityBob(params: {
     });
 
     const langNote = preferredLanguage === "hi"
-      ? "Respond with reasoning and suggested_action in Hindi (Devanagari script)."
+      ? "CRITICAL: Write all reasoning and suggested_action in Hindi (हिंदी, Devanagari script). Do not use English."
       : preferredLanguage === "mr"
-      ? "Respond with reasoning and suggested_action in Marathi (Devanagari script)."
-      : "Respond in English.";
+      ? "CRITICAL: Write all reasoning and suggested_action in Marathi (मराठी, Devanagari script). Do not use English."
+      : "Write all reasoning and suggested_action in clear, conversational English.";
 
     const prompt = `${langNote}
 
@@ -174,8 +198,8 @@ Return ONLY the JSON object.`;
     const parsed = JSON.parse(clean);
     return {
       decision: ["YES", "CAUTION", "NO"].includes(parsed.decision) ? parsed.decision : "CAUTION",
-      reasoning: parsed.reasoning || "Bob is analyzing your budget...",
-      suggested_action: parsed.suggested_action || "Review your budget carefully before deciding.",
+      reasoning: parsed.reasoning || (heuristicResult().reasoning),
+      suggested_action: parsed.suggested_action || (heuristicResult().suggested_action),
     };
   } catch (err) {
     console.warn("askAffordabilityBob: Gemini failed, using heuristics.", err);
@@ -211,7 +235,6 @@ export interface MatchedScheme {
   match_strength: "Strong" | "Likely" | "Possible";
   eligibility_explanation: string;
   how_to_apply: string;
-  // Enriched from original row
   type: "scholarship" | "loan";
   authority: string;
   benefit: string;
@@ -246,29 +269,41 @@ export async function matchSchemesBob(params: {
   const heuristicMatches: MatchedScheme[] = schemes
     .filter((s) => {
       const e = s.eligibility;
-      // Income check
       if (e.income_max !== null && studentIncome > e.income_max) return false;
-      // Category check
       if (e.category?.length && !e.category.includes(profile.category)) return false;
-      // State check
       if (e.state && e.state !== "all" && e.state !== profile.state) return false;
-      // Course check
       if (e.course_type?.length && !e.course_type.includes(profile.course)) return false;
       return true;
     })
-    .map((s) => ({
-      scheme_id: s.id,
-      scheme_name: s.name,
-      eligible: true,
-      match_strength: "Likely" as const,
-      eligibility_explanation: `Based on your profile (${profile.category} category, ${profile.income_bracket} income, ${profile.state} state, ${profile.course}), you appear eligible for this ${s.type}.`,
-      how_to_apply: `Visit ${s.apply_url} to start your application. Keep your income certificate and category certificate ready.`,
-      type: s.type,
-      authority: s.authority,
-      benefit: s.benefit,
-      apply_url: s.apply_url,
-      description: s.description,
-    }));
+    .map((s) => {
+      let explanation = "";
+      let howToApply = "";
+
+      if (preferredLanguage === "hi") {
+        explanation = `आपकी प्रोफाइल (${profile.category} श्रेणी, ${profile.income_bracket} पारिवारिक आय, ${profile.state || "भारत"}, ${profile.course}) के आधार पर आप इस ${s.type === "scholarship" ? "छात्रवृत्ति" : "ऋण योजना"} के लिए पूर्णतः पात्र हैं।`;
+        howToApply = `${s.apply_url} पर जाएं। अपना आय प्रमाण पत्र, आधार और श्रेणी प्रमाण पत्र साथ रखें।`;
+      } else if (preferredLanguage === "mr") {
+        explanation = `तुमच्या प्रोफाइलनुसार (${profile.category} प्रवर्ग, ${profile.income_bracket} कौटुंबिक उत्पन्न, ${profile.state || "महाराष्ट्र"}, ${profile.course}) तुम्ही या ${s.type === "scholarship" ? "शिष्यवृत्तीसाठी" : "शैक्षणिक कर्जासाठी"} पात्र आहात.`;
+        howToApply = `${s.apply_url} अधिकृत पोर्टलवर अर्ज करा. तुमचे उत्पन्न आणि जात प्रमाणपत्र तयार ठेवा.`;
+      } else {
+        explanation = `Based on your profile (${profile.category} category, ${profile.income_bracket} income, ${profile.state} state, ${profile.course}), you appear eligible for this ${s.type}.`;
+        howToApply = `Visit ${s.apply_url} to start your application. Keep your income certificate and category certificate ready.`;
+      }
+
+      return {
+        scheme_id: s.id,
+        scheme_name: s.name,
+        eligible: true,
+        match_strength: "Likely" as const,
+        eligibility_explanation: explanation,
+        how_to_apply: howToApply,
+        type: s.type,
+        authority: s.authority,
+        benefit: s.benefit,
+        apply_url: s.apply_url,
+        description: s.description,
+      };
+    });
 
   if (!genAI || schemes.length === 0) return heuristicMatches;
 
@@ -280,9 +315,9 @@ export async function matchSchemesBob(params: {
 
     const langNote =
       preferredLanguage === "hi"
-        ? "Write all explanation fields in Hindi (Devanagari script)."
+        ? "CRITICAL: Write all eligibility_explanation and how_to_apply fields in pure Hindi (हिंदी, Devanagari script)."
         : preferredLanguage === "mr"
-        ? "Write all explanation fields in Marathi (Devanagari script)."
+        ? "CRITICAL: Write all eligibility_explanation and how_to_apply fields in pure Marathi (मराठी, Devanagari script)."
         : "Write all explanation fields in English.";
 
     const prompt = `${langNote}
@@ -313,7 +348,6 @@ Return ONLY the JSON array of eligible schemes.`;
       how_to_apply: string;
     }> = JSON.parse(clean);
 
-    // Enrich with original scheme data
     return parsed
       .filter((m) => m.eligible)
       .map((m) => {
@@ -353,16 +387,59 @@ export async function askBob(params: {
   const msg = message.toLowerCase();
 
   const heuristic = (): string => {
-    if (msg.includes("burn rate") || msg.includes("खर्च") || msg.includes("जळत")) {
-      return `तुमचा daily burn rate ₹${fc.dailyBurnRate.toFixed(0)}/day आहे. Your burn rate is ₹${fc.dailyBurnRate.toFixed(0)}/day. At this pace, you'll spend ₹${(fc.dailyBurnRate * 30).toFixed(0)} this month vs your allowance of ₹${fc.monthlyAllowance.toFixed(0)}.`;
+    if (preferredLanguage === "hi") {
+      if (msg.includes("burn rate") || msg.includes("खर्च") || msg.includes("रफ्तार") || msg.includes("दर")) {
+        return `📊 आपका दैनिक खर्च दर (Daily Burn Rate) ₹${fc.dailyBurnRate.toFixed(0)}/दिन है। इस रफ्तार से आप इस महीने ₹${(fc.dailyBurnRate * 30).toFixed(0)} खर्च कर देंगे, जबकि आपका कुल मासिक बजट ₹${fc.monthlyAllowance.toFixed(0)} है।`;
+      }
+      if (msg.includes("afford") || msg.includes("buy") || msg.includes("खरीद") || msg.includes("लेना")) {
+        return `💡 किसी भी खरीदारी के लिए ऊपर "Can I Afford?" टैब का उपयोग करें! मैं आपके शेष बजट (₹${fc.remainingBudget.toFixed(0)}) और महीने के बचे हुए दिनों का विश्लेषण करके तुरंत सही फैसला दूंगा।`;
+      }
+      if (msg.includes("scholarship") || msg.includes("loan") || msg.includes("छात्रवृत्ति") || msg.includes("वजीफा") || msg.includes("कर्ज")) {
+        return `🎓 "Schemes" टैब देखें! आपकी प्रोफाइल के आधार पर पीएमएसएस (PMSS), पोस्ट-मैट्रिक ओबीसी, और विद्या लक्ष्मी जैसे सरकारी लाभ उपलब्ध हैं।`;
+      }
+      if (msg.includes("save") || msg.includes("बचत") || msg.includes("पैसे बचा")) {
+        return `💰 Bob का नियम: महीने के पहले दिन ही अपने भत्ते का 10% (₹${(fc.monthlyAllowance * 0.1).toFixed(0)}) किसी बचत लक्ष्य में अलग रख लें। इसे "Pay Yourself First" रणनीति कहते हैं।`;
+      }
+      const hindiTips = [
+        `आपका शेष बजट ₹${fc.remainingBudget.toFixed(0)} है। हर छोटा खर्च (जैसे ₹10 की चाय) भी तुरंत लॉग करें ताकि मेरा विश्लेषण सटीक रहे!`,
+        `सलाह: नेशनल स्कॉलरशिप पोर्टल (scholarships.gov.in) पर कई ऐसी योजनाएं हैं जिनके लिए आप पात्र हैं।`,
+        `आपने इस महीने अब तक ₹${fc.totalSpentThisMonth.toFixed(0)} खर्च किए हैं। ₹500 से ऊपर की किसी भी गैर-ज़रूरी खरीदारी से पहले 48 घंटे रुकें — इससे 80% फिजूलखर्ची रुक जाती है।`,
+      ];
+      return hindiTips[Math.floor(Math.random() * hindiTips.length)];
     }
-    if (msg.includes("afford") || msg.includes("buy") || msg.includes("खरेदी") || msg.includes("खरीद")) {
+
+    if (preferredLanguage === "mr") {
+      if (msg.includes("burn rate") || msg.includes("खर्च") || msg.includes("वेग") || msg.includes("दर")) {
+        return `📊 तुमचा दैनंदिन खर्च दर (Daily Burn Rate) ₹${fc.dailyBurnRate.toFixed(0)}/दिवस आहे. या वेगाने तुम्ही या महिन्यात सुमारे ₹${(fc.dailyBurnRate * 30).toFixed(0)} खर्च कराल, तर तुमचा मासिक पॉकेट मनी ₹${fc.monthlyAllowance.toFixed(0)} आहे.`;
+      }
+      if (msg.includes("afford") || msg.includes("buy") || msg.includes("खरेदी") || msg.includes("घ्यावे")) {
+        return `💡 खरेदी करण्यापूर्वी "Can I Afford?" टॅब वापरा! तुमच्या उरलेल्या ₹${fc.remainingBudget.toFixed(0)} बजेट आणि शिल्लक दिवसांचे विश्लेषण करून मी लगेच सल्ला देईन.`;
+      }
+      if (msg.includes("scholarship") || msg.includes("loan") || msg.includes("शिष्यवृत्ती") || msg.includes("कर्ज")) {
+        return `🎓 "Schemes" टॅब तपासा! तुमच्या प्रोफाइलनुसार महाराष्ट्र आणि केंद्र सरकारच्या पीएमएसएस, पोस्ट-मॅट्रिक व विद्यालक्ष्मी योजनांसाठी तुम्ही पात्र आहात.`;
+      }
+      if (msg.includes("save") || msg.includes("बचत") || msg.includes("पैसे वाचवा")) {
+        return `💰 Bob चा नियम: महिन्याच्या पहिल्याच दिवशी तुमच्या पॉकेट मनीचे 10% (₹${(fc.monthlyAllowance * 0.1).toFixed(0)}) बचत खात्यात बाजूला ठेवा. याला "Pay Yourself First" म्हणतात.`;
+      }
+      const marathiTips = [
+        `तुमचे शिल्लक बजेट ₹${fc.remainingBudget.toFixed(0)} आहे. चहाचा ₹१० खर्चही ॲपमध्ये नोंदवा, जेणेकरून बजेट अचूक राहील!`,
+        `महत्त्वाची टीप: राष्ट्रीय शिष्यवृत्ती पोर्टल (scholarships.gov.in) वर सरकारी शिष्यवृत्तीसाठी अर्ज करा.`,
+        `तुम्ही या महिन्यात आतापर्यंत ₹${fc.totalSpentThisMonth.toFixed(0)} खर्च केले आहेत. ₹५०० पेक्षा जास्त खरेदीपूर्वी ४८ तास वाट पाहण्याचा नियम वापरा.`,
+      ];
+      return marathiTips[Math.floor(Math.random() * marathiTips.length)];
+    }
+
+    // English
+    if (msg.includes("burn rate") || msg.includes("burn") || msg.includes("pace")) {
+      return `Your daily burn rate is ₹${fc.dailyBurnRate.toFixed(0)}/day. At this pace, you'll spend ₹${(fc.dailyBurnRate * 30).toFixed(0)} this month vs your allowance of ₹${fc.monthlyAllowance.toFixed(0)}.`;
+    }
+    if (msg.includes("afford") || msg.includes("buy")) {
       return `Use the "Can I Afford This?" tab to get Bob's step-by-step reasoning on any purchase. It analyzes your remaining ₹${fc.remainingBudget.toFixed(0)} budget and days left this month.`;
     }
-    if (msg.includes("scholarship") || msg.includes("loan") || msg.includes("शिष्यवृत्ती") || msg.includes("वजीफा")) {
-      return `Head to the Scholarship & Loan Matcher tab! Based on your profile, Bob will filter all real Indian government schemes you're likely eligible for — including PMSS, CSSS, and more.`;
+    if (msg.includes("scholarship") || msg.includes("loan")) {
+      return `Head to the Schemes tab! Based on your profile, Bob will filter all real Indian government schemes you're likely eligible for — including PMSS, CSSS, and Vidya Lakshmi.`;
     }
-    if (msg.includes("save") || msg.includes("बचत") || msg.includes("बचाव")) {
+    if (msg.includes("save")) {
       return `Start small: transfer 10% of your monthly allowance (₹${(fc.monthlyAllowance * 0.1).toFixed(0)}) to a savings goal on Day 1 of every month. Bob calls this the "Pay Yourself First" strategy.`;
     }
     const tips = [
@@ -378,10 +455,10 @@ export async function askBob(params: {
   try {
     const langNote =
       preferredLanguage === "hi"
-        ? "Respond entirely in Hindi (Devanagari script)."
+        ? "CRITICAL RULE: Respond completely in Hindi (हिंदी, Devanagari script). Do not output English."
         : preferredLanguage === "mr"
-        ? "Respond entirely in Marathi (Devanagari script)."
-        : "Respond in English.";
+        ? "CRITICAL RULE: Respond completely in Marathi (मराठी, Devanagari script). Do not output English."
+        : "Respond in friendly, clear English.";
 
     const model = genAI.getGenerativeModel({
       model: "gemini-2.5-flash",

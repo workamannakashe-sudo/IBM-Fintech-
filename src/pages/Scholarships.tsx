@@ -104,12 +104,12 @@ export const Scholarships: React.FC = () => {
     load();
   }, []);
 
-  // Auto-run Bob matching once schemes and profile loaded
+  // Auto-run Bob matching once schemes and profile loaded, or when preferredLanguage changes
   useEffect(() => {
-    if (allSchemes.length > 0 && profile.name && !matchDone) {
+    if (allSchemes.length > 0 && profile.name) {
       runBobMatch();
     }
-  }, [allSchemes, profile.name]);
+  }, [allSchemes, profile.name, preferredLanguage]);
 
   const runBobMatch = async () => {
     if (matchLoading) return;
