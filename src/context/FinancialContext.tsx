@@ -111,7 +111,7 @@ interface FinancialContextType {
   updateLoanExtraPayment: (id: string, extraPayment: number) => void;
   resetDemoData: () => void;
   login: (email: string, password: string, userType: "Student" | "Professional", currency: "USD" | "INR", monthlyAllowance?: number) => Promise<{ success: boolean; error?: string }>;
-  registerUser: (email: string, password: string, name: string, userType: "Student" | "Professional", currency: "USD" | "INR", monthlyAllowance?: number) => Promise<{ success: boolean; error?: string }>;
+  registerUser: (email: string, password: string, name: string, userType: "Student" | "Professional", currency: "USD" | "INR", monthlyAllowance?: number, additionalDetails?: Partial<StudentProfile>) => Promise<{ success: boolean; error?: string }>;
   loginAsGuest: (userType: "Student" | "Professional", currency: "USD" | "INR", monthlyAllowance?: number) => void;
   logout: () => void;
 }
@@ -559,18 +559,30 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (error) return { success: false, error: error.message };
         setIsAuthenticated(true);
         setIsGuest(false);
+        const data = await loadUserSupabaseData(email);
+        if (data) {
+          setProfile(data.profile);
+          setTransactions(data.transactions);
+          setBudgets(data.budgets);
+          setGoals(data.goals);
+          setLoans(data.loans);
+          setDbProfileId(data.profileId);
+        }
         return { success: true };
       } catch (err: any) {
         return { success: false, error: err.message };
       }
     }
 
-    // Local / Guest fallback login
+    // Local account login
+    const userName = email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
     setIsAuthenticated(true);
     setIsGuest(false);
-    if (monthlyAllowance) {
-      setProfile((prev) => ({ ...prev, monthlyAllowance }));
-    }
+    setProfile((prev) => ({
+      ...prev,
+      name: userName || "Student",
+      monthlyAllowance: monthlyAllowance || prev.monthlyAllowance || (selectedCurrency === "INR" ? 15000 : 650),
+    }));
     return { success: true };
   };
 
@@ -580,14 +592,15 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     name: string,
     selectedUserType: "Student" | "Professional",
     selectedCurrency: "USD" | "INR",
-    monthlyAllowance?: number
+    monthlyAllowance?: number,
+    additionalDetails?: Partial<StudentProfile>
   ): Promise<{ success: boolean; error?: string }> => {
     setUserTypeState(selectedUserType);
     setCurrencyState(selectedCurrency);
 
     if (isSupabaseConfigured()) {
       try {
-        const { error } = await supabase.auth.signUp({
+        const { data: signUpData, error } = await supabase.auth.signUp({
           email,
           password,
           options: { data: { name, userType: selectedUserType } },
@@ -595,15 +608,54 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (error) return { success: false, error: error.message };
         setIsAuthenticated(true);
         setIsGuest(false);
+
+        if (signUpData.user) {
+          const newProfile: StudentProfile = {
+            name,
+            major: additionalDetails?.major || "B.Tech",
+            gpa: 8.5,
+            academicYear: "1st Year",
+            incomeTier: additionalDetails?.income_bracket || "1-3L",
+            firstGen: false,
+            interests: ["Finance", "Technology"],
+            monthlyAllowance: monthlyAllowance || (selectedCurrency === "INR" ? 15000 : 650),
+            course: additionalDetails?.course || "B.Tech",
+            year: additionalDetails?.year || 1,
+            state: additionalDetails?.state || "Maharashtra",
+            income_bracket: additionalDetails?.income_bracket || "1-3L",
+            category: additionalDetails?.category || "Gen",
+            preferred_language: "en",
+          };
+          setProfile(newProfile);
+          setDbProfileId(signUpData.user.id);
+        }
         return { success: true };
       } catch (err: any) {
         return { success: false, error: err.message };
       }
     }
 
+    // Local registration
+    const newProfile: StudentProfile = {
+      name: name.trim(),
+      major: additionalDetails?.course || "B.Tech Computer Science",
+      gpa: 8.5,
+      academicYear: `${additionalDetails?.year || 1}st Year`,
+      incomeTier: additionalDetails?.income_bracket || "1-3L",
+      firstGen: false,
+      interests: ["FinTech", "Academics", "Student Life"],
+      monthlyAllowance: monthlyAllowance || (selectedCurrency === "INR" ? 15000 : 650),
+      course: additionalDetails?.course || "B.Tech",
+      year: additionalDetails?.year || 1,
+      state: additionalDetails?.state || "Maharashtra",
+      income_bracket: additionalDetails?.income_bracket || "1-3L",
+      category: additionalDetails?.category || "Gen",
+      preferred_language: "en",
+    };
+
     setIsAuthenticated(true);
     setIsGuest(false);
-    setProfile((prev) => ({ ...prev, name, monthlyAllowance: monthlyAllowance || prev.monthlyAllowance }));
+    setProfile(newProfile);
     return { success: true };
   };
 
@@ -616,9 +668,25 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setCurrencyState(selectedCurrency);
     setIsAuthenticated(true);
     setIsGuest(true);
-    if (monthlyAllowance) {
-      setProfile((prev) => ({ ...prev, monthlyAllowance }));
-    }
+
+    const guestProfile: StudentProfile = {
+      name: "Guest Student",
+      major: "General Academics",
+      gpa: 3.5,
+      academicYear: "1st Year",
+      incomeTier: "1-3L",
+      firstGen: false,
+      interests: ["Campus Life", "Smart Budgeting"],
+      monthlyAllowance: monthlyAllowance || (selectedCurrency === "INR" ? 12000 : 500),
+      course: "B.Tech",
+      year: 1,
+      state: "All India",
+      income_bracket: "1-3L",
+      category: "Gen",
+      preferred_language: "en",
+    };
+
+    setProfile(guestProfile);
   };
 
   const logout = async () => {
@@ -630,6 +698,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setDbProfileId(null);
     localStorage.removeItem("bm_authenticated");
     localStorage.removeItem("bm_is_guest");
+    localStorage.removeItem("bm_profile");
   };
 
   return (

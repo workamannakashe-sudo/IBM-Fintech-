@@ -56,7 +56,13 @@ export const Login: React.FC = () => {
     if (!email.includes("@")) { setError("Please enter a valid email address"); return; }
     if (password.length < 6) { setError("Password must be at least 6 characters"); return; }
     setError(""); setLoading(true);
-    const res = await registerUser(email, password, name, "Student", "INR", allowance);
+    const res = await registerUser(email, password, name, "Student", "INR", allowance, {
+      course,
+      year,
+      state,
+      income_bracket: incomeBracket,
+      category,
+    });
     setLoading(false);
     if (!res.success) setError(res.error || "Registration failed");
   };
