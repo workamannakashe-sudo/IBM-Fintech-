@@ -50,11 +50,11 @@ CREATE TABLE IF NOT EXISTS public.schemes (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- 5. Chat Messages Table (Bob conversation history)
+-- 5. Chat Messages Table (AI conversation history)
 CREATE TABLE IF NOT EXISTS public.chat_messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-    role TEXT NOT NULL CHECK (role IN ('user', 'bob')),
+    role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'bob')),
     content TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );

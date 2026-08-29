@@ -4,7 +4,7 @@ import { GamificationProvider } from "./context/GamificationContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { Sidebar } from "./components/Sidebar";
 import { TopHeader } from "./components/TopHeader";
-import { BobChatWidget } from "./components/BobChatWidget";
+import { AskFinBuddyWidget } from "./components/AskFinBuddyWidget";
 import { QuickLogFab } from "./components/QuickLogFab";
 import { QuickLogModal } from "./components/QuickLogModal";
 import { BadgeCelebrationModal } from "./components/BadgeCelebrationModal";
@@ -89,7 +89,7 @@ function AppContent() {
       <QuickLogModal isOpen={quickLogOpen} onClose={() => setQuickLogOpen(false)} />
 
       {/* Persistent floating AI companion chat window */}
-      <BobChatWidget setActiveTab={setActiveTab} />
+      <AskFinBuddyWidget setActiveTab={setActiveTab} />
 
       {/* Confetti celebrate achievements toast overlays */}
       <BadgeCelebrationModal />

@@ -8,7 +8,7 @@
 
 [![Build Status](https://img.shields.io/badge/Build-Passing-emerald?style=for-the-badge&logo=vite)](https://github.com/workamannakashe-sudo/IBM-Fintech-)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict%20Mode-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/Tests-43%2F43%20Passing-brightgreen?style=for-the-badge&logo=vitest)](https://vitest.dev/)
+[![Tests](https://img.shields.io/badge/Tests-51%2F51%20Passing-brightgreen?style=for-the-badge&logo=vitest)](https://vitest.dev/)
 [![React](https://img.shields.io/badge/React-19.2-cyan?style=for-the-badge&logo=react)](https://react.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/TailwindCSS-v4-38bdf8?style=for-the-badge&logo=tailwindcss)](https://tailwindcss.com/)
 [![Track](https://img.shields.io/badge/Track-Student%20AI%20Track%3A%20Financial%20Literacy-orange?style=for-the-badge)](https://cloud.ibm.com)
@@ -188,7 +188,7 @@ graph TD
 
 ## 🧪 Automated Testing Suite
 
-The repository includes a comprehensive test suite powered by **Vitest** and **React Testing Library** with **100% pass rate (43/43 tests across 11 test suites)**.
+The repository includes a comprehensive test suite powered by **Vitest** and **React Testing Library** with **100% pass rate (51/51 tests across 13 test suites)**.
 
 ```bash
 # Run complete test suite
@@ -204,10 +204,12 @@ npm run test:watch
 * `src/__tests__/security.test.ts`: HTML entity sanitization, boundary clipping, prompt injection stripping, and safe storage round-tripping.
 * `src/__tests__/csvParser.test.ts`: Bank CSV ingestion, Indian UPI parsing, negative value normalization, and HTML stripping.
 * `src/__tests__/gemini.test.ts`: Indian expense auto-categorization, Affordability decisions (YES/CAUTION/NO), Hindi/Marathi output, and scholarship filters.
+* `src/__tests__/chatService.test.ts`: FinBuddy AI system prompt injection with live numbers, affordability verdicts, budget summaries, and loan guidance.
 * `src/__tests__/splitBill.test.ts`: Equal splitting math, decimal currency precision, and zero-amount safeguards.
 * `src/__tests__/gamification.test.ts`: XP-to-level progression, consecutive daily streak incrementation, and skip reset logic.
 * `src/__tests__/components/TopHeader.test.tsx`: TopHeader render and profile name smoke test.
 * `src/__tests__/components/Sidebar.test.tsx`: Sidebar navigation items and brand smoke test.
+* `src/__tests__/components/AskFinBuddyWidget.test.tsx`: AskFinBuddy floating drawer, quick reply chips, and live grounding banner.
 * `src/__tests__/components/SplitBillModal.test.tsx`: Split bill modal interactions, math calculations, and WhatsApp share buttons.
 * `src/__tests__/components/QuickLogModal.test.tsx`: Expense modal dialog render and input fields test.
 
