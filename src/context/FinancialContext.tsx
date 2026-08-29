@@ -1,9 +1,33 @@
 // BudgetMitra Financial Context Provider (FinancialContext.tsx)
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useMemo } from "react";
 import { autoCategorizeExpense, explainAnomaly } from "../services/gemini";
 import { calculateHealthScore } from "../utils/health";
+import type { HealthBreakdown } from "../utils/health";
 import { syncTransactionsToGoogleSheets } from "../services/sheetsSync";
 import { supabase, isSupabaseConfigured } from "../utils/supabase/client";
+import {
+  DEFAULT_PROFILE_USD_STUDENT,
+  DEFAULT_BUDGETS_USD_STUDENT,
+  SEED_TRANSACTIONS_USD_STUDENT,
+  DEFAULT_GOALS_USD_STUDENT,
+  DEFAULT_LOANS_USD_STUDENT,
+  DEFAULT_PROFILE_INR_STUDENT,
+  DEFAULT_BUDGETS_INR_STUDENT,
+  SEED_TRANSACTIONS_INR_STUDENT,
+  DEFAULT_GOALS_INR_STUDENT,
+  DEFAULT_LOANS_INR_STUDENT,
+  DEFAULT_PROFILE_USD_PROFESSIONAL,
+  DEFAULT_BUDGETS_USD_PROFESSIONAL,
+  SEED_TRANSACTIONS_USD_PROFESSIONAL,
+  DEFAULT_GOALS_USD_PROFESSIONAL,
+  DEFAULT_LOANS_USD_PROFESSIONAL,
+  DEFAULT_PROFILE_INR_PROFESSIONAL,
+  DEFAULT_BUDGETS_INR_PROFESSIONAL,
+  SEED_TRANSACTIONS_INR_PROFESSIONAL,
+  DEFAULT_GOALS_INR_PROFESSIONAL,
+  DEFAULT_LOANS_INR_PROFESSIONAL,
+} from "../services/financialSeeds";
+import { loadUserSupabaseData } from "../services/supabaseFinancial";
 
 export interface Transaction {
   id: string;
@@ -24,10 +48,9 @@ export interface StudentProfile {
   firstGen: boolean;
   interests: string[];
   monthlyAllowance: number;
-  // BudgetMitra Indian student profile fields
-  course?: string;           // e.g. 'B.Tech', 'B.Sc'
-  year?: number;             // 1–4
-  state?: string;            // Indian state
+  course?: string;
+  year?: number;
+  state?: string;
   income_bracket?: "below_1L" | "1-3L" | "3-8L" | "above_8L";
   category?: "Gen" | "OBC" | "SC" | "ST" | "EWS";
   preferred_language?: "en" | "hi" | "mr";
@@ -62,7 +85,7 @@ interface FinancialContextType {
   syncStatus: "synced" | "pending" | "offline" | "unconfigured";
   healthScore: number;
   healthGrade: string;
-  healthBreakdown: any;
+  healthBreakdown: HealthBreakdown;
   dailyBurnRate: number;
   totalSpentThisMonth: number;
   projectedBurnoutDay: string;
@@ -74,8 +97,8 @@ interface FinancialContextType {
   setPreferredLanguage: (lang: "en" | "hi" | "mr") => void;
   setBurnRateMultiplier: (val: number) => void;
   setCurrency: (curr: "USD" | "INR") => void;
-  setUserType(type: "Student" | "Professional"): void;
-  setSyncUrl(url: string): void;
+  setUserType: (type: "Student" | "Professional") => void;
+  setSyncUrl: (url: string) => void;
   triggerSync: () => Promise<boolean>;
   updateProfile: (profile: Partial<StudentProfile>) => void;
   addTransaction: (description: string, amount: number, date?: string, category?: string) => Promise<Transaction>;
@@ -95,555 +118,119 @@ interface FinancialContextType {
 
 const FinancialContext = createContext<FinancialContextType | undefined>(undefined);
 
-// Empty Default Data
-const DEFAULT_PROFILE_EMPTY: StudentProfile = {
-  name: "",
-  major: "",
-  gpa: 0,
-  academicYear: "",
-  incomeTier: "",
-  firstGen: false,
-  interests: [],
-  monthlyAllowance: 0,
-  course: "",
-  year: 1,
-  state: "",
-  income_bracket: "1-3L",
-  category: "Gen",
-  preferred_language: "en",
-};
-
-const DEFAULT_BUDGETS_EMPTY: Record<string, number> = {
-  "Housing & Rent": 0,
-  "Food & Dining": 0,
-  "Textbooks & Tuition": 0,
-  "Entertainment & Subscriptions": 0,
-  "Transportation": 0,
-  "Health & Wellness": 0,
-  "Shopping & Personal": 0,
-  "Miscellaneous": 0,
-};
-
-// USD Default Seed Data
-const DEFAULT_PROFILE_USD_STUDENT: StudentProfile = {
-  name: "Aman Kashe",
-  major: "Computer Science & FinTech",
-  gpa: 3.82,
-  academicYear: "Junior",
-  incomeTier: "Low-Income (Tier 1)",
-  firstGen: true,
-  interests: ["Software Engineering", "AI Ethics", "Campus Transit Planning"],
-  monthlyAllowance: 650.0,
-};
-
-const DEFAULT_BUDGETS_USD_STUDENT: Record<string, number> = {
-  "Housing & Rent": 450,
-  "Food & Dining": 200,
-  "Textbooks & Tuition": 150,
-  "Entertainment & Subscriptions": 80,
-  "Transportation": 50,
-  "Health & Wellness": 40,
-  "Shopping & Personal": 100,
-  "Miscellaneous": 50,
-};
-
-const SEED_TRANSACTIONS_USD_STUDENT: Transaction[] = [
-  { id: "t1", date: "2026-08-01", description: "Monthly Hostel Rent", amount: 450.0, category: "Housing & Rent", isAnomaly: false },
-  { id: "t2", date: "2026-08-05", description: "Campus bookstore - Algorithms Text", amount: 112.5, category: "Textbooks & Tuition", isAnomaly: false },
-  { id: "t3", date: "2026-08-08", description: "Starbucks Iced Macchiato", amount: 5.75, category: "Food & Dining", isAnomaly: false },
-  { id: "t4", date: "2026-08-10", description: "Spotify Student Premium", amount: 5.99, category: "Entertainment & Subscriptions", isAnomaly: false },
-  { id: "t5", date: "2026-08-12", description: "Dining Hall Flex-Meal", amount: 12.0, category: "Food & Dining", isAnomaly: false },
-  { id: "t6", date: "2026-08-15", description: "Transit Bus Pass Card", amount: 25.0, category: "Transportation", isAnomaly: false },
-  { id: "t7", date: "2026-08-18", description: "Subway Sandwiches Dinner", amount: 11.2, category: "Food & Dining", isAnomaly: false },
-  { id: "t8", date: "2026-08-20", description: "Target Grocery Store haul", amount: 72.4, category: "Food & Dining", isAnomaly: false },
-  { id: "t9", date: "2026-08-22", description: "CVS Pharmacy - Advil & Bandaids", amount: 14.5, category: "Health & Wellness", isAnomaly: false },
-  { id: "t10", date: "2026-08-24", description: "Impulse Campus Concert ticket", amount: 65.0, category: "Entertainment & Subscriptions", isAnomaly: true, anomalyExplanation: "This $65.00 ticket is significantly higher than your typical $10.00 entertainment transactions. Bob advises matching dynamic campus budgets!" },
-];
-
-// INR Default Seed Data (Localizing to Indian Students)
-const DEFAULT_PROFILE_INR_STUDENT: StudentProfile = {
-  name: "Rahul Sharma",
-  major: "B.Tech Computer Science",
-  gpa: 8.84, // CGPA format
-  academicYear: "3rd Year",
-  incomeTier: "Tier-2 Family Income",
-  firstGen: true,
-  interests: ["Software Engineering", "Chai debates", "Auto pooling research"],
-  monthlyAllowance: 15000.0, // ₹15,000 allowance
-  course: "B.Tech",
-  year: 3,
-  state: "Maharashtra",
-  income_bracket: "1-3L",
-  category: "OBC",
-  preferred_language: "en",
-};
-
-const DEFAULT_BUDGETS_INR_STUDENT: Record<string, number> = {
-  "Housing & Rent": 6000,
-  "Food & Dining": 4000,
-  "Textbooks & Tuition": 1500,
-  "Entertainment & Subscriptions": 1000,
-  "Transportation": 1000,
-  "Health & Wellness": 500,
-  "Shopping & Personal": 1500,
-  "Miscellaneous": 500,
-};
-
-const SEED_TRANSACTIONS_INR_STUDENT: Transaction[] = [
-  { id: "t1", date: "2026-08-01", description: "PG hostel rent deposit", amount: 5500.0, category: "Housing & Rent", isAnomaly: false },
-  { id: "t2", date: "2026-08-05", description: "Campus bookstore - Engineering drawing kit", amount: 1200.0, category: "Textbooks & Tuition", isAnomaly: false },
-  { id: "t3", date: "2026-08-08", description: "Chai and Samosa tapri stall", amount: 45.0, category: "Food & Dining", isAnomaly: false },
-  { id: "t4", date: "2026-08-10", description: "YouTube Student Premium", amount: 79.0, category: "Entertainment & Subscriptions", isAnomaly: false },
-  { id: "t5", date: "2026-08-12", description: "College Mess Monthly Coupon", amount: 2800.0, category: "Food & Dining", isAnomaly: false },
-  { id: "t6", date: "2026-08-15", description: "Auto-Rickshaw shared fare", amount: 60.0, category: "Transportation", isAnomaly: false },
-  { id: "t7", date: "2026-08-18", description: "Maggie and Momos stall", amount: 110.0, category: "Food & Dining", isAnomaly: false },
-  { id: "t8", date: "2026-08-20", description: "Supermarket Kirana snacks", amount: 650.0, category: "Food & Dining", isAnomaly: false },
-  { id: "t9", date: "2026-08-22", description: "Local Pharmacy - paracetamol & bandages", amount: 180.0, category: "Health & Wellness", isAnomaly: false },
-  { id: "t10", date: "2026-08-24", description: "Dominos Pizza college party", amount: 950.0, category: "Food & Dining", isAnomaly: true, anomalyExplanation: "This ₹950.00 pizza haul is 2.5x higher than your typical roadside momo snacks. Bob advises tracking mess coupons!" },
-];
-
-// Professional USD Defaults
-const DEFAULT_PROFILE_USD_PROFESSIONAL: StudentProfile = {
-  name: "Alex Miller",
-  major: "Software Developer",
-  gpa: 4.0,
-  academicYear: "Graduated",
-  incomeTier: "Mid-Career Professional",
-  firstGen: false,
-  interests: ["Equities", "Real Estate", "Coffee Roasting"],
-  monthlyAllowance: 4500.0, // Treat allowance as monthly salary budget
-};
-
-const DEFAULT_BUDGETS_USD_PROFESSIONAL: Record<string, number> = {
-  "Housing & Rent": 1800,
-  "Food & Dining": 800,
-  "Textbooks & Tuition": 100, // Used for Professional courses / books
-  "Entertainment & Subscriptions": 300,
-  "Transportation": 400,
-  "Health & Wellness": 250,
-  "Shopping & Personal": 500,
-  "Miscellaneous": 350,
-};
-
-const SEED_TRANSACTIONS_USD_PROFESSIONAL: Transaction[] = [
-  { id: "t1", date: "2026-08-01", description: "Apartment Rent payment", amount: 1750.0, category: "Housing & Rent", isAnomaly: false },
-  { id: "t2", date: "2026-08-05", description: "System Design book study course", amount: 65.0, category: "Textbooks & Tuition", isAnomaly: false },
-  { id: "t3", date: "2026-08-08", description: "Downtown Steakhouse Dinner", amount: 110.0, category: "Food & Dining", isAnomaly: false },
-  { id: "t4", date: "2026-08-10", description: "Netflix Premium 4K UHD", amount: 22.99, category: "Entertainment & Subscriptions", isAnomaly: false },
-  { id: "t5", date: "2026-08-12", description: "Organic Grocery Delivery", amount: 185.0, category: "Food & Dining", isAnomaly: false },
-  { id: "t6", date: "2026-08-15", description: "Uber office commute", amount: 35.0, category: "Transportation", isAnomaly: false },
-  { id: "t7", date: "2026-08-18", description: "Gym membership fee", amount: 80.0, category: "Health & Wellness", isAnomaly: false },
-  { id: "t8", date: "2026-08-20", description: "Weekend Mall clothes shopping", amount: 210.0, category: "Shopping & Personal", isAnomaly: false },
-];
-
-// Professional INR Defaults
-const DEFAULT_PROFILE_INR_PROFESSIONAL: StudentProfile = {
-  name: "Arjun Verma",
-  major: "FinTech Analyst",
-  gpa: 8.5,
-  academicYear: "Graduated",
-  incomeTier: "Corporate Professional",
-  firstGen: false,
-  interests: ["Mutual Funds", "Blogging", "Cafes"],
-  monthlyAllowance: 60000.0,
-};
-
-const DEFAULT_BUDGETS_INR_PROFESSIONAL: Record<string, number> = {
-  "Housing & Rent": 18000,
-  "Food & Dining": 12000,
-  "Textbooks & Tuition": 2500,
-  "Entertainment & Subscriptions": 4000,
-  "Transportation": 5000,
-  "Health & Wellness": 3000,
-  "Shopping & Personal": 10000,
-  "Miscellaneous": 5500,
-};
-
-const SEED_TRANSACTIONS_INR_PROFESSIONAL: Transaction[] = [
-  { id: "t1", date: "2026-08-01", description: "1BHK Flat rent payment", amount: 16500.0, category: "Housing & Rent", isAnomaly: false },
-  { id: "t2", date: "2026-08-05", description: "Udemy FinTech certification course", amount: 1800.0, category: "Textbooks & Tuition", isAnomaly: false },
-  { id: "t3", date: "2026-08-08", description: "Starbucks Cappuccino & bagel", amount: 380.0, category: "Food & Dining", isAnomaly: false },
-  { id: "t4", date: "2026-08-10", description: "Netflix India Premium Subscription", amount: 649.0, category: "Entertainment & Subscriptions", isAnomaly: false },
-  { id: "t5", date: "2026-08-12", description: "Nature's Basket grocery delivery", amount: 3200.0, category: "Food & Dining", isAnomaly: false },
-  { id: "t6", date: "2026-08-15", description: "Uber office taxi ride", amount: 480.0, category: "Transportation", isAnomaly: false },
-  { id: "t7", date: "2026-08-18", description: "Fit India Cultpass gym gym fee", amount: 1500.0, category: "Health & Wellness", isAnomaly: false },
-  { id: "t8", date: "2026-08-20", description: "Lifestyle showroom clothes shopping", amount: 4200.0, category: "Shopping & Personal", isAnomaly: false },
-];
-
 export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Authentication states
+  // Authentication & Mode State
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return localStorage.getItem("fw_authenticated") === "true";
+    return localStorage.getItem("bm_authenticated") === "true";
   });
 
   const [isGuest, setIsGuest] = useState<boolean>(() => {
-    return localStorage.getItem("fw_is_guest") === "true";
+    return localStorage.getItem("bm_is_guest") === "true";
   });
 
-  // Localization Configurations
-  const [currency, setCurrencyState] = useState<"USD" | "INR">(( ) => {
-    return (localStorage.getItem("fw_currency") as "USD" | "INR") || "INR"; // Default Indian Rupees
+  const [userType, setUserTypeState] = useState<"Student" | "Professional">(() => {
+    return (localStorage.getItem("bm_user_type") as "Student" | "Professional") || "Student";
   });
 
-  const [userType, setUserTypeState] = useState<"Student" | "Professional">(( ) => {
-    return (localStorage.getItem("fw_user_type") as "Student" | "Professional") || "Student";
+  const [currency, setCurrencyState] = useState<"USD" | "INR">(() => {
+    return (localStorage.getItem("bm_currency") as "USD" | "INR") || "INR";
   });
 
-  // Apps Script sync credentials
-  const [syncUrl, setSyncUrlState] = useState<string>(( ) => {
-    return localStorage.getItem("fw_sync_url") || "";
+  const [preferredLanguage, setPreferredLanguageState] = useState<"en" | "hi" | "mr">(() => {
+    return (localStorage.getItem("bm_language") as "en" | "hi" | "mr") || "en";
   });
 
-  const [syncStatus, setSyncStatus] = useState<"synced" | "pending" | "offline" | "unconfigured">("unconfigured");
+  const supabaseStatus: "connected" | "local" | "syncing" | "error" =
+    isSupabaseConfigured() ? "connected" : "local";
+  const [dbProfileId, setDbProfileId] = useState<string | null>(null);
 
-  // Seed selectors based on options
-  const getProfileSeed = (curr: "USD" | "INR", type: "Student" | "Professional"): StudentProfile => {
-    if (curr === "INR") {
-      return type === "Student" ? DEFAULT_PROFILE_INR_STUDENT : DEFAULT_PROFILE_INR_PROFESSIONAL;
-    }
-    return type === "Student" ? DEFAULT_PROFILE_USD_STUDENT : DEFAULT_PROFILE_USD_PROFESSIONAL;
-  };
-
-  const getBudgetsSeed = (curr: "USD" | "INR", type: "Student" | "Professional"): Record<string, number> => {
-    if (curr === "INR") {
-      return type === "Student" ? DEFAULT_BUDGETS_INR_STUDENT : DEFAULT_BUDGETS_INR_PROFESSIONAL;
-    }
-    return type === "Student" ? DEFAULT_BUDGETS_USD_STUDENT : DEFAULT_BUDGETS_USD_PROFESSIONAL;
-  };
-
-  const getTransactionsSeed = (curr: "USD" | "INR", type: "Student" | "Professional"): Transaction[] => {
-    if (curr === "INR") {
-      return type === "Student" ? SEED_TRANSACTIONS_INR_STUDENT : SEED_TRANSACTIONS_INR_PROFESSIONAL;
-    }
-    return type === "Student" ? SEED_TRANSACTIONS_USD_STUDENT : SEED_TRANSACTIONS_USD_PROFESSIONAL;
-  };
-
-  const getGoalsSeed = (curr: "USD" | "INR"): SavingsGoal[] => {
-    if (curr === "INR") {
-      return [
-        { id: "g1", name: "Emergency Buffer Fund", target: 20000, current: 8500 },
-        { id: "g2", name: "Study Abroad (Germany)", target: 150000, current: 40000 },
-        { id: "g3", name: "Laptop Upgrade", target: 80000, current: 25000 },
-      ];
-    }
-    return [
-      { id: "g1", name: "Emergency Buffer", target: 1000, current: 450 },
-      { id: "g2", name: "Study Abroad (Germany)", target: 3000, current: 850 },
-      { id: "g3", name: "Laptop Upgrade", target: 1200, current: 300 },
-    ];
-  };
-
-  const getLoansSeed = (curr: "USD" | "INR", type: "Student" | "Professional"): StudentLoan[] => {
-    if (curr === "INR") {
-      return type === "Student"
-        ? [
-            {
-              id: "l1",
-              name: "SBI Scholar Education Loan",
-              principal: 450000,
-              interestRate: 8.15,
-              termMonths: 120,
-              extraPayment: 0,
-              type: "Subsidized",
-            },
-          ]
-        : [
-            {
-              id: "l1",
-              name: "HDFC Flat Home Loan",
-              principal: 1200000,
-              interestRate: 8.75,
-              termMonths: 240,
-              extraPayment: 0,
-              type: "Home",
-            },
-          ];
-    }
-    return type === "Student"
-      ? [
-          {
-            id: "l1",
-            name: "Federal Direct Subsidized Loan",
-            principal: 8500,
-            interestRate: 5.5,
-            termMonths: 120,
-            extraPayment: 0,
-            type: "Subsidized",
-          },
-        ]
-      : [
-          {
-            id: "l1",
-            name: "Chase Car Personal Loan",
-            principal: 15000,
-            interestRate: 6.2,
-            termMonths: 60,
-            extraPayment: 0,
-            type: "Personal",
-          },
-        ];
-  };
-
-  // State Declarations
-  const [dbProfileId, setDbProfileId] = useState<string | null>(() => {
-    return localStorage.getItem("fw_db_profile_id") || null;
-  });
-
-  useEffect(() => {
-    if (dbProfileId) {
-      localStorage.setItem("fw_db_profile_id", dbProfileId);
-    } else {
-      localStorage.removeItem("fw_db_profile_id");
-    }
-  }, [dbProfileId]);
-
+  // Core Ledger State
   const [profile, setProfile] = useState<StudentProfile>(() => {
-    try {
-      const data = localStorage.getItem("fw_profile");
-      return data ? JSON.parse(data) : DEFAULT_PROFILE_EMPTY;
-    } catch (e) {
-      console.warn("Failed to parse fw_profile from localStorage, falling back to clean data", e);
-      return DEFAULT_PROFILE_EMPTY;
+    const saved = localStorage.getItem("bm_profile");
+    if (saved) {
+      try { return JSON.parse(saved); } catch { /* ignore */ }
     }
-  });
-
-  const [transactions, setTransactions] = useState<Transaction[]>(() => {
-    try {
-      const data = localStorage.getItem("fw_transactions");
-      return data ? JSON.parse(data) : [];
-    } catch (e) {
-      console.warn("Failed to parse fw_transactions from localStorage, falling back to clean data", e);
-      return [];
-    }
-  });
-
-  const [goals, setGoals] = useState<SavingsGoal[]>(() => {
-    try {
-      const data = localStorage.getItem("fw_goals");
-      return data ? JSON.parse(data) : [];
-    } catch (e) {
-      console.warn("Failed to parse fw_goals from localStorage, falling back to clean data", e);
-      return [];
-    }
-  });
-
-  const [loans, setLoans] = useState<StudentLoan[]>(() => {
-    try {
-      const data = localStorage.getItem("fw_loans");
-      return data ? JSON.parse(data) : [];
-    } catch (e) {
-      console.warn("Failed to parse fw_loans from localStorage, falling back to clean data", e);
-      return [];
-    }
+    return DEFAULT_PROFILE_INR_STUDENT;
   });
 
   const [budgets, setBudgets] = useState<Record<string, number>>(() => {
-    try {
-      const data = localStorage.getItem("fw_budgets");
-      return data ? JSON.parse(data) : DEFAULT_BUDGETS_EMPTY;
-    } catch (e) {
-      console.warn("Failed to parse fw_budgets from localStorage, falling back to clean data", e);
-      return DEFAULT_BUDGETS_EMPTY;
+    const saved = localStorage.getItem("bm_budgets");
+    if (saved) {
+      try { return JSON.parse(saved); } catch { /* ignore */ }
     }
+    return DEFAULT_BUDGETS_INR_STUDENT;
   });
 
-  const [burnRateMultiplier, setBurnRateMultiplier] = useState(1.0);
-
-  const [supabaseStatus, setSupabaseStatus] = useState<"connected" | "local" | "syncing" | "error">("local");
-
-  // BudgetMitra: preferred language for IBM Bob responses
-  const [preferredLanguage, setPreferredLanguageState] = useState<"en" | "hi" | "mr">(() => {
-    return (localStorage.getItem("bm_preferred_language") as "en" | "hi" | "mr") || "en";
+  const [transactions, setTransactions] = useState<Transaction[]>(() => {
+    const saved = localStorage.getItem("bm_transactions");
+    if (saved) {
+      try { return JSON.parse(saved); } catch { /* ignore */ }
+    }
+    return SEED_TRANSACTIONS_INR_STUDENT;
   });
 
-  const setPreferredLanguage = (lang: "en" | "hi" | "mr") => {
-    setPreferredLanguageState(lang);
-    localStorage.setItem("bm_preferred_language", lang);
-    // Persist to Supabase profile
-    if (isSupabaseConfigured() && dbProfileId) {
-      supabase.from("profiles").update({ preferred_language: lang }).eq("id", dbProfileId)
-        .then(({ error }: any) => { if (error) console.warn("Language update failed:", error); });
+  const [goals, setGoals] = useState<SavingsGoal[]>(() => {
+    const saved = localStorage.getItem("bm_goals");
+    if (saved) {
+      try { return JSON.parse(saved); } catch { /* ignore */ }
     }
-  };
+    return DEFAULT_GOALS_INR_STUDENT;
+  });
+
+  const [loans, setLoans] = useState<StudentLoan[]>(() => {
+    const saved = localStorage.getItem("bm_loans");
+    if (saved) {
+      try { return JSON.parse(saved); } catch { /* ignore */ }
+    }
+    return DEFAULT_LOANS_INR_STUDENT;
+  });
+
+  // Burn Rate & Cloud Sync
+  const [burnRateMultiplier, setBurnRateMultiplier] = useState<number>(1.0);
+  const [syncUrl, setSyncUrlState] = useState<string>(() => localStorage.getItem("bm_sync_url") || "");
+  const [syncStatus, setSyncStatus] = useState<"synced" | "pending" | "offline" | "unconfigured">(
+    syncUrl ? "synced" : "unconfigured"
+  );
+
+  // Persistence to LocalStorage
+  useEffect(() => {
+    localStorage.setItem("bm_profile", JSON.stringify(profile));
+  }, [profile]);
 
   useEffect(() => {
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-  }, []);
+    localStorage.setItem("bm_budgets", JSON.stringify(budgets));
+  }, [budgets]);
 
-  const fetchSupabaseData = async (userId: string, email: string) => {
-    if (!isSupabaseConfigured()) return null;
-    try {
-      let { data: profileData, error: profileErr } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .maybeSingle();
+  useEffect(() => {
+    localStorage.setItem("bm_transactions", JSON.stringify(transactions));
+  }, [transactions]);
 
-      if (profileErr) throw profileErr;
+  useEffect(() => {
+    localStorage.setItem("bm_goals", JSON.stringify(goals));
+  }, [goals]);
 
-      if (!profileData) {
-        // If not present in DB, insert a new profile row using the new BudgetMitra schema
-        const defaultName = email.split("@")[0] || "User";
-        const { data: newProfile, error: createErr } = await supabase
-          .from("profiles")
-          .insert({
-            id: userId,
-            full_name: defaultName,
-            course: userType === "Student" ? "B.Tech" : "Professional",
-            year: userType === "Student" ? 1 : null,
-            state: "",
-            income_bracket: "1-3L",
-            category: "Gen",
-            monthly_allowance: userType === "Student" ? 10000 : 50000,
-            preferred_language: preferredLanguage,
-          })
-          .select()
-          .single();
+  useEffect(() => {
+    localStorage.setItem("bm_loans", JSON.stringify(loans));
+  }, [loans]);
 
-        if (createErr) throw createErr;
-        profileData = newProfile;
+  useEffect(() => {
+    localStorage.setItem("bm_currency", currency);
+  }, [currency]);
 
-        // AUTO-SEED DEMO DATA FOR RECRUITERS/JUDGES IF DEMO EMAIL
-        if (email.endsWith("@finwise.com")) {
-          const rawTSeed = getTransactionsSeed(currency, userType);
-          const now = new Date();
-          const year = now.getFullYear();
-          const month = now.getMonth() + 1;
-          const monthStr = month < 10 ? `0${month}` : `${month}`;
-          const currentDay = now.getDate();
-          
-          const tSeed = rawTSeed.map(t => {
-            const dayMatch = t.date.match(/-(\d{2})$/);
-            const dayNum = dayMatch ? parseInt(dayMatch[1]) : 1;
-            const targetDayNum = Math.min(dayNum, currentDay);
-            const dayStr = targetDayNum < 10 ? `0${targetDayNum}` : `${targetDayNum}`;
-            return { ...t, date: `${year}-${monthStr}-${dayStr}` };
-          });
+  useEffect(() => {
+    localStorage.setItem("bm_user_type", userType);
+  }, [userType]);
 
-          const gSeed = getGoalsSeed(currency);
-          const lSeed = getLoansSeed(currency, userType);
-          const bSeed = getBudgetsSeed(currency, userType);
+  useEffect(() => {
+    localStorage.setItem("bm_language", preferredLanguage);
+  }, [preferredLanguage]);
 
-          // Upload seeds to Supabase
-          await Promise.all([
-            supabase.from("transactions").insert(tSeed.map(t => ({
-              user_id: profileData!.id,
-              description: t.description,
-              amount: t.amount,
-              category: t.category,
-            }))),
-            supabase.from("savings_goals").insert(gSeed.map(g => ({
-              profile_id: profileData!.id,
-              name: g.name,
-              target: g.target,
-              current: g.current
-            }))),
-            supabase.from("loans").insert(lSeed.map(l => ({
-              profile_id: profileData!.id,
-              name: l.name,
-              principal: l.principal,
-              interest_rate: l.interestRate,
-              term_months: l.termMonths,
-              extra_payment: l.extraPayment,
-              type: l.type
-            }))),
-            // Seed budgets (new schema: user_id, month, category, limit_amount)
-            supabase.from("budgets").upsert(Object.entries(bSeed).map(([category, limit_amount]) => ({
-              user_id: profileData!.id,
-              month: new Date().toISOString().split('T')[0].substring(0, 8) + '01',
-              category,
-              limit_amount
-            })), { onConflict: "user_id,month,category" })
-          ]);
-        }
-      }
+  useEffect(() => {
+    localStorage.setItem("bm_authenticated", String(isAuthenticated));
+    localStorage.setItem("bm_is_guest", String(isGuest));
+  }, [isAuthenticated, isGuest]);
 
-      if (!profileData) return null;
-
-      // Store dbProfileId
-      setDbProfileId(profileData.id);
-
-      // Fetch related data
-      const [txRes, goalsRes, loansRes, budgetsRes] = await Promise.all([
-        supabase.from("transactions").select("*").eq("user_id", profileData!.id).order("created_at", { ascending: false }),
-        supabase.from("savings_goals").select("*").eq("profile_id", profileData!.id),
-        supabase.from("loans").select("*").eq("profile_id", profileData!.id),
-        supabase.from("budgets").select("*").eq("user_id", profileData!.id)
-      ]);
-
-      if (txRes.data) {
-        setTransactions(txRes.data.map((t: any) => ({
-          id: t.id,
-          date: t.created_at ? t.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
-          description: t.description,
-          amount: Number(t.amount),
-          category: t.category,
-          isAnomaly: false,
-          anomalyExplanation: undefined
-        })));
-      }
-
-      if (goalsRes.data) {
-        setGoals(goalsRes.data.map((g: any) => ({
-          id: g.id,
-          name: g.name,
-          target: Number(g.target),
-          current: Number(g.current)
-        })));
-      }
-
-      if (loansRes.data) {
-        setLoans(loansRes.data.map((l: any) => ({
-          id: l.id,
-          name: l.name,
-          principal: Number(l.principal),
-          interestRate: Number(l.interest_rate),
-          termMonths: Number(l.term_months),
-          extraPayment: Number(l.extra_payment),
-          type: l.type
-        })));
-      }
-
-      if (budgetsRes.data && budgetsRes.data.length > 0) {
-        const loadedBudgets: Record<string, number> = {};
-        for (const b of budgetsRes.data) {
-          loadedBudgets[b.category] = Number(b.limit_amount);
-        }
-        setBudgets(loadedBudgets);
-      }
-
-      // Update preferred_language from Supabase profile
-      const dbLang = (profileData.preferred_language || "en") as "en" | "hi" | "mr";
-      setPreferredLanguageState(dbLang);
-      localStorage.setItem("bm_preferred_language", dbLang);
-
-      setProfile({
-        name: profileData.full_name || profileData.name || "",
-        major: profileData.course || profileData.major || "",
-        gpa: Number(profileData.gpa || 0),
-        academicYear: profileData.academic_year || `Year ${profileData.year || 1}`,
-        interests: profileData.interests || [],
-        incomeTier: profileData.income_tier || profileData.income_bracket || "",
-        firstGen: profileData.first_gen || false,
-        monthlyAllowance: Number(profileData.monthly_allowance || 0),
-        course: profileData.course || profileData.major || "",
-        year: Number(profileData.year || 1),
-        state: profileData.state || "",
-        income_bracket: profileData.income_bracket || "1-3L",
-        category: profileData.category || "Gen",
-        preferred_language: dbLang,
-      });
-
-      return profileData.id;
-    } catch (err) {
-      console.error("Error loading data from Supabase:", err);
-      return null;
-    }
-  };
-
-  // Auth State Listener
+  // Hydrate Supabase on mount
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
 
@@ -652,8 +239,16 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (session?.user) {
         setIsAuthenticated(true);
         setIsGuest(false);
-        localStorage.setItem("fw_authenticated", "true");
-        localStorage.setItem("fw_is_guest", "false");
+        loadUserSupabaseData(session.user.email).then((data) => {
+          if (data) {
+            setProfile(data.profile);
+            setTransactions(data.transactions);
+            setBudgets(data.budgets);
+            setGoals(data.goals);
+            setLoans(data.loans);
+            setDbProfileId(data.profileId);
+          }
+        });
       }
     });
 
@@ -661,218 +256,150 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (session?.user) {
         setIsAuthenticated(true);
         setIsGuest(false);
-        localStorage.setItem("fw_authenticated", "true");
-        localStorage.setItem("fw_is_guest", "false");
-      } else {
-        const isGuestMode = localStorage.getItem("fw_is_guest") === "true";
-        if (!isGuestMode) {
-          setIsAuthenticated(false);
-          setDbProfileId(null);
-          localStorage.removeItem("fw_authenticated");
-        }
+        loadUserSupabaseData(session.user.email).then((data) => {
+          if (data) {
+            setProfile(data.profile);
+            setTransactions(data.transactions);
+            setBudgets(data.budgets);
+            setGoals(data.goals);
+            setLoans(data.loans);
+            setDbProfileId(data.profileId);
+          }
+        });
+      } else if (!isGuest) {
+        setIsAuthenticated(false);
+        setDbProfileId(null);
       }
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [isGuest]);
 
-  // Supabase User Data Loader
-  useEffect(() => {
-    if (isSupabaseConfigured() && isAuthenticated && !isGuest) {
-      const loadData = async () => {
-        setSupabaseStatus("syncing");
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const profileId = await fetchSupabaseData(user.id, user.email || "");
-          if (profileId) {
-            setSupabaseStatus("connected");
-            
-            if ("Notification" in window && Notification.permission === "granted") {
-              try {
-                new Notification("BudgetMitra — IBM Bob Connected", {
-                  body: `Your data is synced with Supabase. Bob is ready to help!`,
-                });
-              } catch (e) {
-                console.log("Notification blocked");
-              }
-            }
-          } else {
-            setSupabaseStatus("error");
-          }
-        } else {
-          setSupabaseStatus("error");
-        }
-      };
-      loadData();
-    } else {
-      setSupabaseStatus(isSupabaseConfigured() ? "connected" : "local");
-    }
-  }, [isAuthenticated, isGuest]);
+  // Total spent this month
+  const totalSpentThisMonth = useMemo(() => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
 
-  // Synchronization status hook
-  useEffect(() => {
-    if (!syncUrl) {
-      setSyncStatus("unconfigured");
-    } else {
-      setSyncStatus("pending");
-    }
-  }, [syncUrl]);
-
-  // Sync to LocalStorage on changes
-  useEffect(() => {
-    localStorage.setItem("fw_profile", JSON.stringify(profile));
-  }, [profile]);
-
-  useEffect(() => {
-    localStorage.setItem("fw_transactions", JSON.stringify(transactions));
+    return transactions
+      .filter((t) => {
+        const txDate = new Date(t.date);
+        return txDate.getFullYear() === currentYear && txDate.getMonth() === currentMonth;
+      })
+      .reduce((sum, t) => sum + t.amount, 0);
   }, [transactions]);
 
-  useEffect(() => {
-    localStorage.setItem("fw_goals", JSON.stringify(goals));
-  }, [goals]);
-
-  useEffect(() => {
-    localStorage.setItem("fw_loans", JSON.stringify(loans));
-  }, [loans]);
-
-  useEffect(() => {
-    localStorage.setItem("fw_budgets", JSON.stringify(budgets));
-  }, [budgets]);
-
-  // Handle auto Sheets Synchronization
-  useEffect(() => {
-    if (syncUrl && transactions.length > 0) {
-      const runBgSync = async () => {
-        setSyncStatus("pending");
-        const success = await syncTransactionsToGoogleSheets(syncUrl, transactions);
-        setSyncStatus(success ? "synced" : "offline");
-      };
-      runBgSync();
-    }
-  }, [transactions, syncUrl]);
-
-  // Trigger manual sheets sync
-  const triggerSync = async (): Promise<boolean> => {
-    if (!syncUrl) return false;
-    setSyncStatus("pending");
-    const success = await syncTransactionsToGoogleSheets(syncUrl, transactions);
-    setSyncStatus(success ? "synced" : "offline");
-    return success;
-  };
-
-  const setCurrency = (curr: "USD" | "INR") => {
-    setCurrencyState(curr);
-    localStorage.setItem("fw_currency", curr);
-  };
-
-  const setUserType = (type: "Student" | "Professional") => {
-    setUserTypeState(type);
-    localStorage.setItem("fw_user_type", type);
-  };
-
-  const setSyncUrl = (url: string) => {
-    setSyncUrlState(url);
-    localStorage.setItem("fw_sync_url", url);
-  };
-
-  // --- Dynamic Math Properties ---
-  const currentMonthPrefix = (() => {
+  // Daily Burn Rate Calculation
+  const dailyBurnRate = useMemo(() => {
     const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth() + 1;
-    return `${year}-${month < 10 ? '0' + month : month}`;
-  })();
+    const currentDay = Math.max(1, now.getDate());
+    const rawBurnRate = totalSpentThisMonth / currentDay;
+    return rawBurnRate * burnRateMultiplier;
+  }, [totalSpentThisMonth, burnRateMultiplier]);
 
-  const totalSpentThisMonth = transactions
-    .filter(t => t.date.startsWith(currentMonthPrefix))
-    .reduce((sum, t) => sum + t.amount, 0);
+  // Projected Burnout Day
+  const projectedBurnoutDay = useMemo(() => {
+    const totalBudget = profile.monthlyAllowance > 0
+      ? profile.monthlyAllowance
+      : Object.values(budgets).reduce((a, b) => a + b, 0);
 
-  const activeLoggingDays = new Set(
-    transactions
-      .filter(t => t.date.startsWith(currentMonthPrefix))
-      .map(t => t.date)
-  ).size;
+    const remainingBudget = Math.max(0, totalBudget - totalSpentThisMonth);
+    if (dailyBurnRate <= 0) return "End of Month";
 
-  const currentDayOfMonth = new Date().getDate(); // Grounded in current date
+    const daysRemainingOfRunway = Math.floor(remainingBudget / dailyBurnRate);
+    const now = new Date();
+    const burnoutDate = new Date(now.getTime() + daysRemainingOfRunway * 24 * 60 * 60 * 1000);
 
-  // Spending Velocity calculation
-  const rawDailyBurn = currentDayOfMonth > 0 ? totalSpentThisMonth / currentDayOfMonth : totalSpentThisMonth;
-  const dailyBurnRate = rawDailyBurn * burnRateMultiplier;
-
-  // Budget Exhaustion Projections
-  const totalBudgetLimit = Object.values(budgets).reduce((sum, v) => sum + v, 0);
-  
-  let projectedBurnoutDay = "Never";
-  if (dailyBurnRate > 0) {
-    const remainingBudget = Math.max(0, totalBudgetLimit - totalSpentThisMonth);
-    const daysLeft = Math.round(remainingBudget / dailyBurnRate);
-    if (daysLeft < 30 - currentDayOfMonth) {
-      const burnoutDate = new Date();
-      burnoutDate.setDate(burnoutDate.getDate() + daysLeft);
-      projectedBurnoutDay = burnoutDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    } else {
-      projectedBurnoutDay = "Safe (Month-End)";
+    const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    if (burnoutDate.getDate() > lastDayOfMonth || burnoutDate.getMonth() !== now.getMonth()) {
+      return "End of Month (Safe)";
     }
-  }
+    return burnoutDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }, [profile.monthlyAllowance, budgets, totalSpentThisMonth, dailyBurnRate]);
 
-  // Categories over budget calculation
-  const getExpensesByCategory = () => {
-    const totals: Record<string, number> = {};
-    for (const key of Object.keys(budgets)) {
-      totals[key] = 0;
-    }
-    for (const t of transactions) {
-      if (t.date.startsWith("2026-08")) {
-        totals[t.category] = (totals[t.category] || 0) + t.amount;
+  // Financial Health Score Calculation (4 Pillars)
+  const healthBreakdown: HealthBreakdown = useMemo(() => {
+    const totalBudget = profile.monthlyAllowance > 0
+      ? profile.monthlyAllowance
+      : Object.values(budgets).reduce((a, b) => a + b, 0);
+
+    const totalSavingsTarget = goals.reduce((acc, g) => acc + g.target, 0);
+    const totalActualSavings = goals.reduce((acc, g) => acc + g.current, 0);
+
+    const anomalyCount = transactions.filter((t) => t.isAnomaly).length;
+
+    // Categories over budget count
+    const categoryTotals: Record<string, number> = {};
+    transactions.forEach((t) => {
+      categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
+    });
+
+    let overBudgetCount = 0;
+    Object.keys(budgets).forEach((cat) => {
+      if (budgets[cat] > 0 && (categoryTotals[cat] || 0) > budgets[cat]) {
+        overBudgetCount++;
       }
-    }
-    return totals;
-  };
-  const expensesByCategory = getExpensesByCategory();
-  
-  const categoriesOverBudgetCount = Object.keys(budgets).filter(
-    cat => expensesByCategory[cat] > budgets[cat]
-  ).length;
+    });
 
-  const anomalyCount = transactions.filter(t => t.isAnomaly).length;
+    const now = new Date();
+    const daysInMonth = now.getDate();
+    const uniqueLoggingDays = new Set(transactions.map((t) => t.date.split("T")[0])).size;
 
-  const actualSavings = goals.reduce((sum, g) => sum + g.current, 0);
-  const savingsGoalTarget = goals.reduce((sum, g) => sum + g.target, 0);
-
-  // Compute health score breakdown using the custom formula
-  const healthBreakdown = calculateHealthScore({
-    monthlyIncome: profile.monthlyAllowance,
-    totalExpenses: totalSpentThisMonth,
-    totalBudget: totalBudgetLimit,
-    savingsGoalTarget,
-    actualSavings,
-    anomalyCount,
-    categoriesOverBudgetCount,
-    activeLoggingDays,
-    elapsedDaysInMonth: currentDayOfMonth,
-  });
+    return calculateHealthScore({
+      monthlyIncome: profile.monthlyAllowance,
+      totalExpenses: totalSpentThisMonth,
+      totalBudget,
+      savingsGoalTarget: totalSavingsTarget,
+      actualSavings: totalActualSavings,
+      anomalyCount,
+      categoriesOverBudgetCount: overBudgetCount,
+      activeLoggingDays: uniqueLoggingDays,
+      elapsedDaysInMonth: daysInMonth,
+    });
+  }, [profile.monthlyAllowance, budgets, goals, transactions, totalSpentThisMonth]);
 
   const healthScore = healthBreakdown.score;
   const healthGrade = healthBreakdown.grade;
 
-  // --- Core Methods ---
-  const updateProfile = (updated: Partial<StudentProfile>) => {
-    setProfile(prev => ({ ...prev, ...updated }));
+  // Actions
+  const setPreferredLanguage = (lang: "en" | "hi" | "mr") => {
+    setPreferredLanguageState(lang);
+    setProfile((prev) => ({ ...prev, preferred_language: lang }));
+  };
 
-    if (isSupabaseConfigured() && profile.name) {
-      supabase.from("profiles").update({
-        major: updated.major ?? profile.major,
-        gpa: updated.gpa ?? profile.gpa,
-        academic_year: updated.academicYear ?? profile.academicYear,
-        income_tier: updated.incomeTier ?? profile.incomeTier,
-        first_gen: updated.firstGen ?? profile.firstGen,
-        interests: updated.interests ?? profile.interests,
-        monthly_allowance: updated.monthlyAllowance ?? profile.monthlyAllowance
-      }).eq("name", profile.name).then(({ error }: { error: any }) => {
-        if (error) console.error("Error updating profile in Supabase:", error);
-      });
+  const setCurrency = (curr: "USD" | "INR") => {
+    setCurrencyState(curr);
+  };
+
+  const setUserType = (type: "Student" | "Professional") => {
+    setUserTypeState(type);
+  };
+
+  const setSyncUrl = (url: string) => {
+    setSyncUrlState(url);
+    localStorage.setItem("bm_sync_url", url);
+    setSyncStatus(url ? "synced" : "unconfigured");
+  };
+
+  const triggerSync = async (): Promise<boolean> => {
+    if (!syncUrl) return false;
+    setSyncStatus("pending");
+    try {
+      const success = await syncTransactionsToGoogleSheets(syncUrl, transactions);
+      setSyncStatus(success ? "synced" : "offline");
+      return success;
+    } catch {
+      setSyncStatus("offline");
+      return false;
+    }
+  };
+
+  const updateProfile = (updated: Partial<StudentProfile>) => {
+    setProfile((prev) => ({ ...prev, ...updated }));
+    if (isSupabaseConfigured() && dbProfileId) {
+      supabase.from("profiles").update(updated).eq("id", dbProfileId).then();
     }
   };
 
@@ -885,27 +412,21 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const txDate = date || new Date().toISOString().split("T")[0];
     const parsedCategory = category || (await autoCategorizeExpense(description));
 
-    // Determine if this is an anomaly
-    const catTxs = transactions.filter(t => t.category === parsedCategory);
-    let isAnomaly = false;
-    let anomalyExplanation = undefined;
+    // Check Anomaly threshold
+    const categoryTx = transactions.filter((t) => t.category === parsedCategory);
+    const avgCategorySpend = categoryTx.length > 0
+      ? categoryTx.reduce((sum, t) => sum + t.amount, 0) / categoryTx.length
+      : 20;
 
-    if (catTxs.length >= 2) {
-      const mean = catTxs.reduce((sum, t) => sum + t.amount, 0) / catTxs.length;
-      if (amount > mean * 1.8) {
-        isAnomaly = true;
-        anomalyExplanation = await explainAnomaly(parsedCategory, amount, mean);
-      }
-    } else {
-      const limit = currency === "INR" ? 3000.0 : 120.0;
-      if (amount > limit && parsedCategory !== "Housing & Rent" && parsedCategory !== "Textbooks & Tuition") {
-        isAnomaly = true;
-        anomalyExplanation = `Spending ${currency === "INR" ? "₹" : "$"}${amount.toFixed(2)} is high relative to typical small daily campus expenses.`;
-      }
+    const isAnomaly = categoryTx.length >= 2 && amount > avgCategorySpend * 2.0 && amount > 25;
+    let anomalyExplanation: string | undefined;
+
+    if (isAnomaly) {
+      anomalyExplanation = await explainAnomaly(parsedCategory, amount, avgCategorySpend);
     }
 
     const newTx: Transaction = {
-      id: Math.random().toString(36).substring(2, 9),
+      id: `tx_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       date: txDate,
       description,
       amount,
@@ -914,24 +435,19 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       anomalyExplanation,
     };
 
-    setTransactions(prev => [newTx, ...prev]);
+    setTransactions((prev) => [newTx, ...prev]);
 
     if (isSupabaseConfigured() && dbProfileId) {
       supabase.from("transactions").insert({
-        user_id: dbProfileId,
+        profile_id: dbProfileId,
+        date: newTx.date,
         description: newTx.description,
         amount: newTx.amount,
         category: newTx.category,
-      }).then(({ error }: any) => {
-        if (error) console.error("Error inserting transaction to Supabase:", error);
-      });
+        is_anomaly: newTx.isAnomaly,
+        anomaly_explanation: newTx.anomalyExplanation,
+      }).then();
     }
-    
-    // Dispatch custom event to award XP in Gamification context
-    const event = new CustomEvent("fw_xp_gain", { 
-      detail: { type: "add_transaction", isAnomaly } 
-    });
-    window.dispatchEvent(event);
 
     return newTx;
   };
@@ -939,421 +455,181 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const addCSVTransactions = async (
     rawList: Array<{ date: string; description: string; amount: number; category?: string }>
   ): Promise<number> => {
-    let successCount = 0;
-    const newTxs: Transaction[] = [];
-
-    for (const t of rawList) {
-      const cat = t.category || (await autoCategorizeExpense(t.description));
-      newTxs.push({
-        id: Math.random().toString(36).substring(2, 9),
-        date: t.date,
-        description: t.description,
-        amount: t.amount,
+    const processed: Transaction[] = [];
+    for (const item of rawList) {
+      const cat = item.category || (await autoCategorizeExpense(item.description));
+      processed.push({
+        id: `csv_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        date: item.date,
+        description: item.description,
+        amount: item.amount,
         category: cat,
         isAnomaly: false,
       });
-      successCount++;
     }
 
-    setTransactions(prev => [...newTxs, ...prev]);
-
-    if (isSupabaseConfigured() && dbProfileId) {
-      supabase.from("transactions").insert(
-        newTxs.map(tx => ({
-          user_id: dbProfileId,
-          description: tx.description,
-          amount: tx.amount,
-          category: tx.category,
-        }))
-      ).then(({ error }: any) => {
-        if (error) console.error("Error bulk inserting transactions to Supabase:", error);
-      });
-    }
-
-    // Reward bulk CSV logging XP
-    const event = new CustomEvent("fw_xp_gain", { 
-      detail: { type: "bulk_upload", count: successCount } 
-    });
-    window.dispatchEvent(event);
-
-    return successCount;
+    setTransactions((prev) => [...processed, ...prev]);
+    return processed.length;
   };
 
   const deleteTransaction = (id: string) => {
-    const target = transactions.find(t => t.id === id);
-    setTransactions(prev => prev.filter(t => t.id !== id));
-
-    if (isSupabaseConfigured() && dbProfileId && target) {
-      // All IDs from Supabase are UUIDs (contain dashes)
-      supabase.from("transactions").delete().eq("id", id)
-        .eq("user_id", dbProfileId)
-        .then(({ error }: any) => {
-          if (error) console.error("Error deleting transaction from Supabase:", error);
-        });
+    setTransactions((prev) => prev.filter((t) => t.id !== id));
+    if (isSupabaseConfigured() && dbProfileId) {
+      supabase.from("transactions").delete().eq("id", id).then();
     }
   };
 
   const updateBudgetLimit = (category: string, limit: number) => {
-    setBudgets(prev => ({ ...prev, [category]: limit }));
-
+    setBudgets((prev) => ({ ...prev, [category]: Math.max(0, limit) }));
     if (isSupabaseConfigured() && dbProfileId) {
-      const currentMonth = new Date().toISOString().substring(0, 8) + '01';
       supabase.from("budgets").upsert({
-        user_id: dbProfileId,
-        month: currentMonth,
-        category: category,
-        limit_amount: limit
-      }, { onConflict: "user_id,month,category" }).then(({ error }: any) => {
-        if (error) console.error("Error upserting budget in Supabase:", error);
-      });
+        profile_id: dbProfileId,
+        category,
+        monthly_limit: Math.max(0, limit),
+      }).then();
     }
   };
 
   const addSavingsGoal = (name: string, target: number, current: number) => {
     const newGoal: SavingsGoal = {
-      id: Math.random().toString(36).substring(2, 9),
+      id: `goal_${Date.now()}`,
       name,
-      target,
-      current,
+      target: Math.max(1, target),
+      current: Math.max(0, current),
     };
-    setGoals(prev => [...prev, newGoal]);
-
+    setGoals((prev) => [...prev, newGoal]);
     if (isSupabaseConfigured() && dbProfileId) {
       supabase.from("savings_goals").insert({
         profile_id: dbProfileId,
         name: newGoal.name,
-        target: newGoal.target,
-        current: newGoal.current
-      }).then(({ error }: any) => {
-        if (error) console.error("Error inserting goal to Supabase:", error);
-      });
+        target_amount: newGoal.target,
+        current_amount: newGoal.current,
+      }).then();
     }
-    
-    // Dispatch goal XP
-    const event = new CustomEvent("fw_xp_gain", { detail: { type: "create_goal" } });
-    window.dispatchEvent(event);
   };
 
   const updateGoalSavings = (id: string, amount: number) => {
-    const target = goals.find(g => g.id === id);
-    setGoals(prev =>
-      prev.map(g => {
-        if (g.id === id) {
-          const updated = { ...g, current: Math.min(g.target, Math.max(0, amount)) };
-          if (updated.current >= g.target && g.current < g.target) {
-            const event = new CustomEvent("fw_xp_gain", { 
-              detail: { type: "fund_goal", goalName: g.name } 
-            });
-            window.dispatchEvent(event);
-          }
-          return updated;
-        }
-        return g;
-      })
+    setGoals((prev) =>
+      prev.map((g) => (g.id === id ? { ...g, current: Math.max(0, g.current + amount) } : g))
     );
-
-    if (isSupabaseConfigured() && dbProfileId && target) {
-      if (typeof id === "string" && id.includes("-")) {
-        supabase.from("savings_goals").update({ current: Math.max(0, amount) }).eq("id", id).then(({ error }: any) => {
-          if (error) console.error("Error updating goal in Supabase:", error);
-        });
-      } else {
-        supabase.from("savings_goals").update({ current: Math.max(0, amount) })
-          .eq("profile_id", dbProfileId)
-          .eq("name", target.name)
-          .then(({ error }: any) => {
-            if (error) console.error("Error updating goal in Supabase:", error);
-          });
-      }
-    }
   };
 
   const deleteSavingsGoal = (id: string) => {
-    const target = goals.find(g => g.id === id);
-    setGoals(prev => prev.filter(g => g.id !== id));
-
-    if (isSupabaseConfigured() && dbProfileId && target) {
-      if (typeof id === "string" && id.includes("-")) {
-        supabase.from("savings_goals").delete().eq("id", id).then(({ error }: any) => {
-          if (error) console.error("Error deleting goal from Supabase:", error);
-        });
-      } else {
-        supabase.from("savings_goals").delete()
-          .eq("profile_id", dbProfileId)
-          .eq("name", target.name)
-          .then(({ error }: any) => {
-            if (error) console.error("Error deleting goal from Supabase:", error);
-          });
-      }
+    setGoals((prev) => prev.filter((g) => g.id !== id));
+    if (isSupabaseConfigured() && dbProfileId) {
+      supabase.from("savings_goals").delete().eq("id", id).then();
     }
   };
 
   const updateLoanExtraPayment = (id: string, extraPayment: number) => {
-    const target = loans.find(l => l.id === id);
-    setLoans(prev =>
-      prev.map(l => (l.id === id ? { ...l, extraPayment: Math.max(0, extraPayment) } : l))
+    setLoans((prev) =>
+      prev.map((l) => (l.id === id ? { ...l, extraPayment: Math.max(0, extraPayment) } : l))
     );
-
-    if (isSupabaseConfigured() && dbProfileId && target) {
-      if (typeof id === "string" && id.includes("-")) {
-        supabase.from("loans").update({ extra_payment: Math.max(0, extraPayment) }).eq("id", id).then(({ error }: any) => {
-          if (error) console.error("Error updating loan in Supabase:", error);
-        });
-      } else {
-        supabase.from("loans").update({ extra_payment: Math.max(0, extraPayment) })
-          .eq("profile_id", dbProfileId)
-          .eq("name", target.name)
-          .then(({ error }: any) => {
-            if (error) console.error("Error updating loan in Supabase:", error);
-          });
-      }
-    }
   };
 
   const resetDemoData = () => {
-    // Reset local state
-    const pSeed = getProfileSeed(currency, userType);
-    const rawTSeed = getTransactionsSeed(currency, userType);
-    
-    // Map transaction dates to current month dynamically
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth() + 1;
-    const monthStr = month < 10 ? `0${month}` : `${month}`;
-    const currentDay = now.getDate();
-    
-    const tSeed = rawTSeed.map(t => {
-      const dayMatch = t.date.match(/-(\d{2})$/);
-      const dayNum = dayMatch ? parseInt(dayMatch[1]) : 1;
-      const targetDayNum = Math.min(dayNum, currentDay);
-      const dayStr = targetDayNum < 10 ? `0${targetDayNum}` : `${targetDayNum}`;
-      return {
-        ...t,
-        date: `${year}-${monthStr}-${dayStr}`
-      };
-    });
-
-    const gSeed = getGoalsSeed(currency);
-    const lSeed = getLoansSeed(currency, userType);
-    const bSeed = getBudgetsSeed(currency, userType);
-
-    setProfile(pSeed);
-    setTransactions(tSeed);
-    setGoals(gSeed);
-    setLoans(lSeed);
-    setBudgets(bSeed);
-    setBurnRateMultiplier(1.0);
-
-    // If Supabase is connected, clear tables and re-seed in DB
-    if (isSupabaseConfigured() && dbProfileId) {
-      setSupabaseStatus("syncing");
-      const currentMonth = new Date().toISOString().substring(0, 8) + '01';
-      Promise.all([
-        supabase.from("transactions").delete().eq("user_id", dbProfileId),
-        supabase.from("savings_goals").delete().eq("profile_id", dbProfileId),
-        supabase.from("loans").delete().eq("profile_id", dbProfileId),
-        supabase.from("budgets").delete().eq("user_id", dbProfileId)
-      ]).then(() => {
-        // Upload seeds
-        Promise.all([
-          supabase.from("transactions").insert(tSeed.map(t => ({
-            user_id: dbProfileId,
-            description: t.description,
-            amount: t.amount,
-            category: t.category,
-          }))),
-          supabase.from("savings_goals").insert(gSeed.map(g => ({
-            profile_id: dbProfileId,
-            name: g.name,
-            target: g.target,
-            current: g.current
-          }))),
-          supabase.from("loans").insert(lSeed.map(l => ({
-            profile_id: dbProfileId,
-            name: l.name,
-            principal: l.principal,
-            interest_rate: l.interestRate,
-            term_months: l.termMonths,
-            extra_payment: l.extraPayment,
-            type: l.type
-          }))),
-          supabase.from("budgets").insert(Object.entries(bSeed).map(([category, limit_amount]) => ({
-            user_id: dbProfileId,
-            month: currentMonth,
-            category,
-            limit_amount
-          })))
-        ]).then(() => {
-          setSupabaseStatus("connected");
-        });
-      });
+    if (currency === "INR") {
+      setProfile(userType === "Student" ? DEFAULT_PROFILE_INR_STUDENT : DEFAULT_PROFILE_INR_PROFESSIONAL);
+      setBudgets(userType === "Student" ? DEFAULT_BUDGETS_INR_STUDENT : DEFAULT_BUDGETS_INR_PROFESSIONAL);
+      setTransactions(userType === "Student" ? SEED_TRANSACTIONS_INR_STUDENT : SEED_TRANSACTIONS_INR_PROFESSIONAL);
+      setGoals(userType === "Student" ? DEFAULT_GOALS_INR_STUDENT : DEFAULT_GOALS_INR_PROFESSIONAL);
+      setLoans(userType === "Student" ? DEFAULT_LOANS_INR_STUDENT : DEFAULT_LOANS_INR_PROFESSIONAL);
+    } else {
+      setProfile(userType === "Student" ? DEFAULT_PROFILE_USD_STUDENT : DEFAULT_PROFILE_USD_PROFESSIONAL);
+      setBudgets(userType === "Student" ? DEFAULT_BUDGETS_USD_STUDENT : DEFAULT_BUDGETS_USD_PROFESSIONAL);
+      setTransactions(userType === "Student" ? SEED_TRANSACTIONS_USD_STUDENT : SEED_TRANSACTIONS_USD_PROFESSIONAL);
+      setGoals(userType === "Student" ? DEFAULT_GOALS_USD_STUDENT : DEFAULT_GOALS_USD_PROFESSIONAL);
+      setLoans(userType === "Student" ? DEFAULT_LOANS_USD_STUDENT : DEFAULT_LOANS_USD_PROFESSIONAL);
     }
   };
 
   const login = async (
     email: string,
     password: string,
-    type: "Student" | "Professional",
-    curr: "USD" | "INR",
-    allowance?: number
+    selectedUserType: "Student" | "Professional",
+    selectedCurrency: "USD" | "INR",
+    monthlyAllowance?: number
   ): Promise<{ success: boolean; error?: string }> => {
-    const finalAllowance = allowance !== undefined ? allowance : (type === "Student" ? 10000 : 50000);
+    setUserTypeState(selectedUserType);
+    setCurrencyState(selectedCurrency);
+
     if (isSupabaseConfigured()) {
       try {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        });
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) return { success: false, error: error.message };
-
         setIsAuthenticated(true);
         setIsGuest(false);
-        localStorage.setItem("fw_authenticated", "true");
-        localStorage.setItem("fw_is_guest", "false");
-        
-        setUserType(type);
-        setCurrency(curr);
-        
         return { success: true };
       } catch (err: any) {
-        return { success: false, error: err.message || "Sign in failed" };
+        return { success: false, error: err.message };
       }
-    } else {
-      // Local mode sign in
-      setIsAuthenticated(true);
-      setIsGuest(false);
-      localStorage.setItem("fw_authenticated", "true");
-      localStorage.setItem("fw_is_guest", "false");
-      
-      setUserType(type);
-      setCurrency(curr);
-      
-      const localProfile = {
-        name: email.split("@")[0] || "Local User",
-        major: type === "Student" ? "Undeclared" : "Developer",
-        gpa: type === "Student" ? 4.0 : 0,
-        academicYear: type === "Student" ? "Freshman" : "Graduated",
-        incomeTier: "Local Account",
-        firstGen: false,
-        interests: [],
-        monthlyAllowance: finalAllowance
-      };
-      setProfile(localProfile);
-      localStorage.setItem("fw_profile", JSON.stringify(localProfile));
-      
-      setTransactions([]);
-      setGoals([]);
-      setLoans([]);
-      setBudgets(DEFAULT_BUDGETS_EMPTY);
-      return { success: true };
     }
+
+    // Local / Guest fallback login
+    setIsAuthenticated(true);
+    setIsGuest(false);
+    if (monthlyAllowance) {
+      setProfile((prev) => ({ ...prev, monthlyAllowance }));
+    }
+    return { success: true };
   };
 
   const registerUser = async (
     email: string,
     password: string,
     name: string,
-    type: "Student" | "Professional",
-    curr: "USD" | "INR",
-    allowance?: number
+    selectedUserType: "Student" | "Professional",
+    selectedCurrency: "USD" | "INR",
+    monthlyAllowance?: number
   ): Promise<{ success: boolean; error?: string }> => {
-    const finalAllowance = allowance !== undefined ? allowance : (type === "Student" ? 10000 : 50000);
+    setUserTypeState(selectedUserType);
+    setCurrencyState(selectedCurrency);
+
     if (isSupabaseConfigured()) {
       try {
-        const { data, error } = await supabase.auth.signUp({
+        const { error } = await supabase.auth.signUp({
           email,
-          password
+          password,
+          options: { data: { name, userType: selectedUserType } },
         });
         if (error) return { success: false, error: error.message };
-        if (!data.user) return { success: false, error: "Registration failed." };
-
-        const { error: profileErr } = await supabase.from("profiles").insert({
-          id: data.user.id,
-          full_name: name || email.split("@")[0],
-          course: type === "Student" ? "B.Tech" : "Professional",
-          year: type === "Student" ? 1 : null,
-          state: "",
-          income_bracket: "1-3L",
-          category: "Gen",
-          monthly_allowance: finalAllowance,
-          preferred_language: preferredLanguage,
-        });
-
-        if (profileErr) {
-          console.error("Error seeding profile on registration:", profileErr);
-        }
-
         setIsAuthenticated(true);
         setIsGuest(false);
-        localStorage.setItem("fw_authenticated", "true");
-        localStorage.setItem("fw_is_guest", "false");
-        
-        setUserType(type);
-        setCurrency(curr);
-
         return { success: true };
       } catch (err: any) {
-        return { success: false, error: err.message || "Registration failed" };
+        return { success: false, error: err.message };
       }
-    } else {
-      return login(email, password, type, curr, finalAllowance);
+    }
+
+    setIsAuthenticated(true);
+    setIsGuest(false);
+    setProfile((prev) => ({ ...prev, name, monthlyAllowance: monthlyAllowance || prev.monthlyAllowance }));
+    return { success: true };
+  };
+
+  const loginAsGuest = (
+    selectedUserType: "Student" | "Professional",
+    selectedCurrency: "USD" | "INR",
+    monthlyAllowance?: number
+  ) => {
+    setUserTypeState(selectedUserType);
+    setCurrencyState(selectedCurrency);
+    setIsAuthenticated(true);
+    setIsGuest(true);
+    if (monthlyAllowance) {
+      setProfile((prev) => ({ ...prev, monthlyAllowance }));
     }
   };
 
-  const loginAsGuest = (type: "Student" | "Professional", curr: "USD" | "INR", allowance?: number) => {
-    const finalAllowance = allowance !== undefined ? allowance : (type === "Student" ? 10000 : 50000);
-    setIsAuthenticated(true);
-    setIsGuest(true);
-    localStorage.setItem("fw_authenticated", "true");
-    localStorage.setItem("fw_is_guest", "true");
-    
-    setUserType(type);
-    setCurrency(curr);
-    
-    const guestProfile = {
-      name: "Guest User",
-      major: type === "Student" ? "Undeclared" : "Developer",
-      gpa: type === "Student" ? 4.0 : 0,
-      academicYear: type === "Student" ? "Freshman" : "Graduated",
-      incomeTier: "Guest Mode",
-      firstGen: false,
-      interests: [],
-      monthlyAllowance: finalAllowance
-    };
-    setProfile(guestProfile);
-    localStorage.setItem("fw_profile", JSON.stringify(guestProfile));
-    
-    setTransactions([]);
-    setGoals([]);
-    setLoans([]);
-    setBudgets(DEFAULT_BUDGETS_EMPTY);
-  };
-
-  const logout = () => {
+  const logout = async () => {
+    if (isSupabaseConfigured()) {
+      try { await supabase.auth.signOut(); } catch { /* ignore */ }
+    }
     setIsAuthenticated(false);
     setIsGuest(false);
     setDbProfileId(null);
-    localStorage.removeItem("fw_authenticated");
-    localStorage.removeItem("fw_is_guest");
-    localStorage.removeItem("fw_profile");
-    localStorage.removeItem("fw_transactions");
-    localStorage.removeItem("fw_goals");
-    localStorage.removeItem("fw_loans");
-    localStorage.removeItem("fw_budgets");
-    localStorage.removeItem("fw_db_profile_id");
-
-    if (isSupabaseConfigured()) {
-      supabase.auth.signOut().catch((e: any) => console.error("Error signing out:", e));
-    }
-
-    setProfile(DEFAULT_PROFILE_EMPTY);
-    setTransactions([]);
-    setGoals([]);
-    setLoans([]);
-    setBudgets(DEFAULT_BUDGETS_EMPTY);
-
-    // Refresh page to clean context state and transition back cleanly
-    window.location.reload();
+    localStorage.removeItem("bm_authenticated");
+    localStorage.removeItem("bm_is_guest");
   };
 
   return (
@@ -1413,8 +689,3 @@ export const useFinancial = () => {
   }
   return context;
 };
-export { DEFAULT_PROFILE_USD_STUDENT, DEFAULT_PROFILE_INR_STUDENT };
-export type { StudentProfile as FinancialProfile };
-export type { SavingsGoal as GoalItem };
-export type { StudentLoan as LoanItem };
-export type { Transaction as TxItem };
