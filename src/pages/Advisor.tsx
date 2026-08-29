@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useFinancial } from "../context/FinancialContext";
-import { askCoach } from "../services/gemini";
-import { Bot, Sparkles, User, Landmark, Lightbulb, PiggyBank, ShieldCheck, AlertCircle } from "lucide-react";
+import { askIBMBob } from "../services/ibmBob";
+import { askBob } from "../services/gemini";
+import { Sparkles, User, Landmark, Lightbulb, PiggyBank, ShieldCheck, AlertCircle } from "lucide-react";
 
 interface Message {
   id: string;
@@ -26,7 +27,7 @@ export const Advisor: React.FC = () => {
     {
       id: "m0",
       sender: "coach",
-      text: `Hello ${profile.name || "there"}! I'm Coach FinWise, your AI wealth and saving advisor. Ask me anything about creating an emergency buffer, cutting down variable spending, optimizing envelope budgets, or compound interest payoff plans. I am fully grounded in your live cash flow status!`,
+      text: `Hello ${profile.name || "there"}! I'm Bob, your IBM AI financial co-pilot for BudgetMitra. Ask me anything about managing your student allowance, cutting variable expenses, optimizing budgets, government scholarships, or loan interest. I am fully grounded in your real-time cash flow!`,
       timestamp: new Date(),
     },
   ]);
@@ -53,9 +54,9 @@ export const Advisor: React.FC = () => {
   // Quick advice action chips
   const actionChips = [
     { label: "💡 How to grow my savings goals?", query: "Give me step by step strategies to fund my savings goals faster based on my income." },
-    { label: "🛒 How can I save on food & dining?", query: "My food & dining expenses are a major part of discretionary costs. What are actionable ways to trim this?" },
-    { label: "📊 What is the 50/30/20 rule?", query: "Explain the classic 50/30/20 budget envelope setup and how I can adopt it." },
-    { label: "💳 Smart credit card rules?", query: "What are the core credit building rules and pitfalls young adults should avoid?" },
+    { label: "🛒 How can I save on food & mess?", query: "My food & dining expenses are a major part of discretionary costs. What are actionable ways to trim this?" },
+    { label: "📊 What is the 50/30/20 rule?", query: "Explain the classic 50/30/20 budget envelope setup and how I can adopt it as a student." },
+    { label: "💳 Smart student money rules?", query: "What are the core money management rules and pitfalls young college students should avoid?" },
   ];
 
   const handleSendMessage = async (textToSend: string) => {
@@ -91,11 +92,29 @@ export const Advisor: React.FC = () => {
     }));
 
     try {
-      const responseText = await askCoach({
+      const responseText = await askIBMBob({
         message: textToSend,
-        chatHistory,
-        preferredLanguage,
-        financialContext,
+        financialContext: {
+          liquidBalance: Math.max(0, liquidBalance),
+          monthlyIncome: profile.monthlyAllowance,
+          totalSpentThisMonth,
+          dailyBurnRate,
+          budgetLimit: totalBudget > 0 ? totalBudget : profile.monthlyAllowance,
+          savingsGoals: goals.map((g) => ({ name: g.name, target: g.target, current: g.current })),
+          recentTransactions: transactions.slice(0, 5).map((t) => ({
+            date: t.date,
+            description: t.description,
+            amount: t.amount,
+            category: t.category,
+          })),
+        },
+      }).catch(async () => {
+        return await askBob({
+          message: textToSend,
+          chatHistory,
+          preferredLanguage,
+          financialContext,
+        });
       });
 
       const coachMsg: Message = {
@@ -116,9 +135,11 @@ export const Advisor: React.FC = () => {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
       {/* Title block */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900 font-display">AI Wealth Advisor</h1>
+        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 font-display">
+          IBM Bob Financial Advisor
+        </h1>
         <p className="text-sm text-slate-500">
-          Get interactive saving suggestions, compound growth calculations, and personalized cash-flow guidelines.
+          Get real-time student budgeting advice, compound savings milestones, and personalized cash-flow guidelines.
         </p>
       </div>
 
@@ -128,15 +149,15 @@ export const Advisor: React.FC = () => {
         <div className="lg:col-span-2 flex flex-col rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden h-[600px]">
           
           {/* Header */}
-          <div className="flex items-center gap-3 border-b border-slate-100 bg-slate-50/50 px-6 py-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-teal text-white shadow-sm">
-              <Bot className="h-5 w-5" />
+          <div className="flex items-center gap-3 border-b border-slate-100 bg-gradient-to-r from-orange-50/70 to-amber-50/70 px-6 py-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/20">
+              <Sparkles className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-800 font-display leading-tight">Coach FinWise</h3>
+              <h3 className="text-sm font-bold text-slate-800 font-display leading-tight">IBM Bob AI Co-Pilot</h3>
               <span className="text-[10px] font-semibold text-emerald-600 flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
-                Live Financial Grounding Connected
+                Live Student Financial Grounding Connected
               </span>
             </div>
           </div>
@@ -148,13 +169,13 @@ export const Advisor: React.FC = () => {
               return (
                 <div key={m.id} className={`flex items-start gap-3 max-w-[85%] ${isUser ? "ml-auto flex-row-reverse" : ""}`}>
                   <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg font-bold text-xs shadow-sm ${
-                    isUser ? "bg-teal-100 text-teal-800" : "bg-brand-teal text-white"
+                    isUser ? "bg-orange-100 text-orange-800" : "bg-gradient-to-br from-orange-500 to-amber-500 text-white"
                   }`}>
-                    {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                    {isUser ? <User className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
                   </div>
                   <div className={`rounded-2xl p-4 text-xs leading-relaxed shadow-sm ${
                     isUser
-                      ? "bg-brand-teal text-white rounded-tr-none"
+                      ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-tr-none"
                       : "bg-white text-slate-800 rounded-tl-none border border-slate-100"
                   }`}>
                     {m.text.split("\n").map((paragraph, index) => (
@@ -169,8 +190,8 @@ export const Advisor: React.FC = () => {
 
             {loading && (
               <div className="flex items-start gap-3 max-w-[80%]">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-teal text-white">
-                  <Bot className="h-4 w-4" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 text-white">
+                  <Sparkles className="h-4 w-4" />
                 </div>
                 <div className="rounded-2xl rounded-tl-none border border-slate-100 bg-white p-4 shadow-sm">
                   <div className="flex items-center gap-1">
@@ -192,7 +213,7 @@ export const Advisor: React.FC = () => {
                   key={idx}
                   onClick={() => handleSendMessage(chip.query)}
                   disabled={loading}
-                  className="rounded-full border border-slate-200 hover:border-brand-teal hover:bg-teal-50 px-3.5 py-1.5 text-[10px] font-bold text-slate-600 hover:text-brand-teal transition-all select-none cursor-pointer disabled:opacity-50"
+                  className="rounded-full border border-slate-200 hover:border-orange-400 hover:bg-orange-50 px-3.5 py-1.5 text-[10px] font-bold text-slate-600 hover:text-orange-700 transition-all select-none cursor-pointer disabled:opacity-50"
                 >
                   {chip.label}
                 </button>
@@ -210,16 +231,16 @@ export const Advisor: React.FC = () => {
           >
             <input
               type="text"
-              placeholder="Ask Coach FinWise about savings hacks, budget optimization, or investments..."
+              placeholder="Ask IBM Bob about savings hacks, student budgets, scholarships, or loans..."
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              className="flex-1 bg-slate-50 border border-slate-200/80 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-brand-teal transition-colors"
+              className="flex-1 bg-slate-50 border border-slate-200/80 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-orange-400 transition-colors"
               disabled={loading}
             />
             <button
               type="submit"
               disabled={loading || !inputValue.trim()}
-              className="rounded-xl bg-brand-teal hover:bg-brand-teal-light text-white font-bold px-5 py-2.5 text-xs shadow-md shadow-teal-700/10 transition-all select-none cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+              className="rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-white font-bold px-5 py-2.5 text-xs shadow-md shadow-orange-500/20 transition-all select-none cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
             >
               Send Message
             </button>
@@ -230,7 +251,7 @@ export const Advisor: React.FC = () => {
         <div className="space-y-6">
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
             <h3 className="font-display text-sm font-bold text-slate-800 uppercase tracking-wide border-b border-slate-100 pb-3 flex items-center gap-1.5">
-              <Sparkles className="h-4.5 w-4.5 text-brand-teal" />
+              <Sparkles className="h-4.5 w-4.5 text-orange-500" />
               Live Savings Insights
             </h3>
 
@@ -252,7 +273,7 @@ export const Advisor: React.FC = () => {
                 
                 {/* Cash Cushion Analysis */}
                 <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 space-y-2">
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Cushion Cushion Analysis</span>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Cushion Analysis</span>
                   <div className="flex items-center gap-2">
                     {liquidBalance < 1000 ? (
                       <AlertCircle className="h-5 w-5 text-rose-500 shrink-0" />
@@ -266,7 +287,7 @@ export const Advisor: React.FC = () => {
                   <p className="text-[10px] text-slate-500 leading-relaxed">
                     You have {formatAmt(liquidBalance)} left out of your allowance.
                     {liquidBalance < 1000 
-                      ? " Coach recommends pausing non-essential subscriptions immediately to avoid overdraft."
+                      ? " Bob recommends pausing non-essential subscriptions immediately to avoid budget deficit."
                       : " Pacing is within parameters. Keep active logging checks!"}
                   </p>
                 </div>
@@ -276,7 +297,7 @@ export const Advisor: React.FC = () => {
                   <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 space-y-2">
                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Savings Target Advice</span>
                     <div className="flex items-center gap-1.5 text-slate-700">
-                      <PiggyBank className="h-4.5 w-4.5 text-brand-teal" />
+                      <PiggyBank className="h-4.5 w-4.5 text-orange-500" />
                       <span className="text-xs font-bold">Goal-Driven Budgets</span>
                     </div>
                     <p className="text-[10px] text-slate-500 leading-relaxed">
@@ -287,7 +308,7 @@ export const Advisor: React.FC = () => {
                   <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 space-y-2">
                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Goal Acceleration Tip</span>
                     <div className="flex items-center gap-1.5 text-slate-700">
-                      <PiggyBank className="h-4.5 w-4.5 text-brand-teal" />
+                      <PiggyBank className="h-4.5 w-4.5 text-orange-500" />
                       <span className="text-xs font-bold">Auto-Saving Target</span>
                     </div>
                     <p className="text-[10px] text-slate-500 leading-relaxed font-sans">
@@ -313,8 +334,8 @@ export const Advisor: React.FC = () => {
           {/* Quick reference guide */}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-3">
             <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
-              <Landmark className="h-4 w-4 text-brand-teal" />
-              Financial Advisor Principles
+              <Landmark className="h-4 w-4 text-orange-500" />
+              IBM Bob Financial Principles
             </h4>
             <ul className="space-y-2 text-[10px] text-slate-500 leading-relaxed list-disc list-inside">
               <li><strong className="text-slate-800">Rule of 72</strong>: Divide 72 by your interest rate to estimate when your savings/investments will double.</li>

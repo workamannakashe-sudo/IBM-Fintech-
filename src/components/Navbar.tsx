@@ -5,7 +5,7 @@ import { useGamification } from "../context/GamificationContext";
 import { 
   Wallet, LayoutDashboard, ReceiptText, ShieldQuestion, 
   Percent, GraduationCap, CalendarHeart, 
-  RotateCcw, ChevronDown, Sliders, Settings2, LogOut, Bot 
+  RotateCcw, ChevronDown, Sliders, Settings2, LogOut, Sparkles 
 } from "lucide-react";
 
 interface NavbarProps {
@@ -33,7 +33,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
     { id: "expenses", label: "Expenses", icon: ReceiptText },
     { id: "affordability", label: "Can I Afford?", icon: ShieldQuestion },
     { id: "scholarships", label: "Schemes", icon: GraduationCap },
-    { id: "advisor", label: "AI Advisor", icon: Bot },
+    { id: "advisor", label: "IBM Bob AI", icon: Sparkles },
     { id: "loans", label: "Loan & EMI", icon: Percent },
     { id: "budget", label: "Budget & Goals", icon: Sliders },
     { id: "habits", label: "Habits", icon: CalendarHeart },
