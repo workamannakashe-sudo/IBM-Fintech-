@@ -220,8 +220,7 @@ npm run build
 - **Currencies**: Instant 1-click toggle between **₹ INR (Indian Rupee)** and **$ USD (US Dollar)** with automatic metric recalculations.
 - **Languages**: Full conversational financial literacy support in:
   - 🇬🇧 **English**
-  - 🇮🇳 **Hindi (हिंदी)**
-  - 🇮🇳 **Marathi (मराठी)**
+ 
 
 ---
 
