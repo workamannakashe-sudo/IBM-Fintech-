@@ -10,8 +10,8 @@ import {
 
 // --- Init Gemini (IBM Bob) ---
 const apiKey =
-  import.meta.env.VITE_GEMINI_API_KEY ||
-  localStorage.getItem("fw_gemini_api_key") ||
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_GEMINI_API_KEY) ||
+  (typeof window !== "undefined" && typeof localStorage !== "undefined" ? localStorage.getItem("fw_gemini_api_key") : null) ||
   "";
 let genAI: GoogleGenerativeAI | null = null;
 if (apiKey && apiKey !== "YOUR_GEMINI_API_KEY_HERE") {

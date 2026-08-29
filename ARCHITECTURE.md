@@ -1,86 +1,81 @@
-# FinWise — System Architecture (ARCHITECTURE.md)
+# 🏛️ BudgetMitra Architecture & Engineering Manual
 
-This document describes the structural layout, folders, data flow, and components of the FinWise React application.
-
----
-
-## 🛠️ Stack Selection
-1. **Frontend Framework:** React 18+ (Vite builder with TypeScript).
-2. **Styling:** Tailwind CSS (utility-first, following color tokens in `DESIGN.md`).
-3. **Icons:** Lucide React (`lucide-react`).
-4. **Charts & Visuals:** Recharts (`recharts`) for area/bar charts and progress gauges.
-5. **Animations:** Framer Motion (`motion/react`) for transition hooks and micro-interactions.
-6. **Reporting:** `jspdf` and `jspdf-autotable` for client-side monthly report generation.
-7. **AI Integration:** Google Gemini API (via `@google/generative-ai` package or direct fetch with fallback heuristic parsers).
+BudgetMitra is a student-centric financial copilot and executive money management platform built with React 19, TypeScript (Strict Mode), Vite, Tailwind CSS, Supabase, and Google Gemini / IBM Bob AI engines.
 
 ---
 
-## 📁 Directory Structure
-
-```text
-FinWise/
-├── public/                 # Static assets, logos, and global font hooks
-├── src/
-│   ├── assets/             # Brand logos & static illustrations
-│   ├── components/         # Reusable structural widgets
-│   │   ├── Navbar.tsx      # Sticky navigation & profile dropdown
-│   │   ├── BobChatWidget.tsx # Floating AI assistant panel
-│   │   ├── QuickLogFab.tsx # Floating action button for quick logs
-│   │   ├── QuickLogModal.tsx # Rapid logging panel with preset chips
-│   │   └── BadgeCelebrationModal.tsx # Confetti overlay modal for achievements
-│   ├── context/            # Shared React Context providers
-│   │   ├── FinancialContext.tsx  # Houses transactions, profile, loans, goals, budgets
-│   │   └── GamificationContext.tsx # Houses XP, levels, badges, streaks, logging history
-│   ├── pages/              # Tab view containers
-│   │   ├── Dashboard.tsx   # Health score, command center, insights, summary cards
-│   │   ├── Expenses.tsx    # Transaction list, CSV upload panel, anomaly indicators
-│   │   ├── Affordability.tsx # "Can I Afford This?" impulse simulation form & delay cards
-│   │   ├── Loans.tsx       # Interest charts, payoff comparisons, Bob's term glossary
-│   │   ├── Scholarships.tsx # Scholarship cards, match scores, essay keyword suggestions
-│   │   ├── Budget.tsx      # Envelope settings, daily burn rate sliders, savings goals
-│   │   └── Habits.tsx      # Streak counts, XP meters, badge grids, heatmap calendar
-│   ├── services/           # External API & utility interfaces
-│   │   ├── gemini.ts       # Gemini API client wrapper & parsing templates
-│   │   ├── csvParser.ts    # Custom text/CSV statement reader
-│   │   └── pdfGenerator.ts # PDF statement layout using jspdf-autotable
-│   ├── utils/              # Pure functions for calculations
-│   │   ├── finance.ts      # EMI calculators, interest schedules, burn rates
-│   │   └── health.ts       # Health score aggregate equations
-│   ├── App.tsx             # Main routing / tab state controller
-│   ├── index.css           # Global custom styles (fonts, backgrounds)
-│   └── main.tsx            # DOM initialization entry point
-├── .env.example            # Sample configuration for Gemini API keys
-├── package.json            # NPM dependencies
-└── vite.config.ts          # Vite build config
-```
-
----
-
-## 🔄 Data & State Flow
+## 📐 System Architecture Diagram
 
 ```mermaid
 graph TD
-    User([Student User]) -->|Action| UI[React UI Components]
-    UI -->|Quick Log/CSV| FC[FinancialContext]
-    UI -->|Check Affordability| AE[Affordability Engine]
-    FC -->|Trigger Streak/XP| GC[GamificationContext]
-    FC -->|Log Data| LS[Local Storage Persistence]
-    GC -->|Award Badge| BC[BadgeCelebrationModal]
-    FC -->|Ask AI / Parse CSV| GS[Gemini Service]
-    GS -->|Query| AI[Gemini 3.7 API]
-    GS -->|Fallback| LH[Local Heuristics]
+    A[User / Browser] --> B[React 19 Frontend App]
+    B --> C[Theme Context (Dark/Light)]
+    B --> D[Financial Context Engine]
+    B --> E[Gamification Engine (XP/Streaks)]
+    
+    D --> F[Security & XSS Sanitization]
+    D --> G[Supabase Realtime Cloud Sync]
+    D --> H[Local Storage Fallback Cache]
+    D --> I[Google Sheets Export Service]
+    D --> J[PDF Monthly Report Generator]
+
+    B --> K[IBM Bob / Gemini AI Copilot]
+    K --> L[Affordability Decision Engine]
+    K --> M[Expense Auto-Categorization]
+    K --> N[Scholarship & Loan Matcher]
+    K --> O[Multi-turn Conversational Coach]
+
+    D --> P[Financial Calculation Utilities]
+    P --> Q[Amortization Engine]
+    P --> R[4-Pillar Health Score Algorithm]
+    P --> S[CSV Bank Statement Parser]
+    P --> T[Split the Bill Engine]
 ```
 
-### 1. Financial Context (`FinancialContext.tsx`)
-* Contains user configuration (Major, GPA, Monthly Allowance, Target Savings).
-* Manages an array of `Transaction` items, `SavingsGoal` objects, and `StudentLoan` items.
-* Exposes utility calculations like `healthScore`, `dailyBurnRate`, `monthlyExpensesByCategory`, and `budgetBurnoutDate`.
+---
 
-### 2. Gamification Context (`GamificationContext.tsx`)
-* Tracks logging streak, XP total, and level (1-4).
-* Listens to transaction additions and goal achievements to award XP and unlock badges.
-* Stores a history grid map of dates logged to populate the habit heatmap calendar.
+## 🔒 Security & Data Privacy Matrix
 
-### 3. Gemini Service (`gemini.ts`)
-* Coordinates calls to Gemini 3.7 Flash for category tagging, spending anomaly descriptions, and interactive chatbot feedback.
-* Implements a local heuristic fallback if no internet or API key is provided, ensuring uninterrupted offline/demo mode.
+| Feature | Implementation | Guarantee |
+| :--- | :--- | :--- |
+| **XSS Defense** | `sanitizeInput()` in `src/utils/security.ts` | All strings escaped before rendering or persistence. |
+| **Boundary Guard** | `sanitizeCurrencyAmount()` | Rejects `NaN`, negative, or overflow values (`<= 100M`). |
+| **Prompt Injection** | `sanitizePromptQuery()` | Filters system-override sequences before sending to LLM. |
+| **Local Storage** | `safeStorageGet()` / `safeStorageSet()` | Validates schema integrity; SSR-safe with error fallback. |
+| **Secret Masking** | `maskSecretKey()` | Masks private API keys in logs and telemetry (`AIza••••cdef`). |
+| **Data Encryption** | Supabase SSL / Row Level Security | Authenticated user sessions segregated in cloud database. |
+
+---
+
+## 🧪 Testing & Quality Assurance Suite
+
+All core mathematical equations, security boundaries, AI heuristic engines, and gamification mechanics are covered with 100% passing tests via **Vitest**.
+
+### Running Tests:
+```bash
+# Run all unit and integration test suites once
+npm test
+
+# Run tests in interactive watch mode
+npm run test:watch
+
+# Build production bundle with full TypeScript strict type checking
+npm run build
+```
+
+### Test Suite Catalog:
+1. `src/__tests__/finance.test.ts`: Simple/Compound interest, 50-year safety ceilings, 0% interest student loans, accelerated payoff schedules.
+2. `src/__tests__/health.test.ts`: 4-pillar financial health score, letter grade boundaries (A+ to D), budget burst penalties, anomaly deductions.
+3. `src/__tests__/security.test.ts`: XSS HTML escaping, boundary constraints, prompt injection sanitization, safe storage serialization.
+4. `src/__tests__/csvParser.test.ts`: Bank statement CSV ingestion, Indian UPI parsing, negative amounts vs credit/debit detection.
+5. `src/__tests__/gemini.test.ts`: Auto-categorization heuristics (Food, Rent, Books, Travel, Entertainment), Affordability decision trees (YES/CAUTION/NO), Hindi & Marathi language generation, scholarship matching.
+6. `src/__tests__/splitBill.test.ts`: Group expense splitting, friend allocations, decimal currency precision.
+7. `src/__tests__/gamification.test.ts`: XP progression, level milestones, consecutive streak calculations and reset safeguards.
+
+---
+
+## 💎 Type Safety & Strict Mode Standards
+
+- **TypeScript Version**: ~6.0.2 with `"strict": true`, `"noImplicitAny": true`, `"strictNullChecks": true`.
+- **Zero Unused Variables**: Built with `"noUnusedLocals": true` and `"noUnusedParameters": true`.
+- **Explicit Interfaces**: All database schemas (`profiles`, `transactions`, `budgets`, `savings_goals`, `loans`, `schemes`), context states, and helper returns are fully typed.

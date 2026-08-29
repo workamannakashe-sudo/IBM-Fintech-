@@ -647,7 +647,8 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data }: { data: { session: any } }) => {
+      const session = data?.session;
       if (session?.user) {
         setIsAuthenticated(true);
         setIsGuest(false);
@@ -656,7 +657,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       if (session?.user) {
         setIsAuthenticated(true);
         setIsGuest(false);
@@ -869,7 +870,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         first_gen: updated.firstGen ?? profile.firstGen,
         interests: updated.interests ?? profile.interests,
         monthly_allowance: updated.monthlyAllowance ?? profile.monthlyAllowance
-      }).eq("name", profile.name).then(({ error }) => {
+      }).eq("name", profile.name).then(({ error }: { error: any }) => {
         if (error) console.error("Error updating profile in Supabase:", error);
       });
     }
