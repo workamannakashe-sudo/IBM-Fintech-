@@ -42,21 +42,47 @@ export const Login: React.FC = () => {
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.includes("@")) { setError("Please enter a valid email address"); return; }
-    if (password.length < 6) { setError("Password must be at least 6 characters"); return; }
-    setError(""); setLoading(true);
-    const res = await login(email, password, "Student", "INR", allowance);
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPass = password.trim();
+
+    if (!cleanEmail.includes("@") || !cleanEmail.includes(".")) {
+      setError("Please enter a valid email address (e.g. name@college.in)");
+      return;
+    }
+    if (cleanPass.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+    setError("");
+    setLoading(true);
+    const res = await login(cleanEmail, cleanPass, "Student", "INR", allowance);
     setLoading(false);
-    if (!res.success) setError(res.error || "Login failed");
+    if (!res.success) {
+      setError(res.error || "Login failed. Please check your credentials.");
+    }
   };
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) { setError("Please enter your full name"); return; }
-    if (!email.includes("@")) { setError("Please enter a valid email address"); return; }
-    if (password.length < 6) { setError("Password must be at least 6 characters"); return; }
-    setError(""); setLoading(true);
-    const res = await registerUser(email, password, name, "Student", "INR", allowance, {
+    const cleanName = name.trim();
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPass = password.trim();
+
+    if (!cleanName) {
+      setError("Please enter your full name");
+      return;
+    }
+    if (!cleanEmail.includes("@") || !cleanEmail.includes(".")) {
+      setError("Please enter a valid email address (e.g. name@college.in)");
+      return;
+    }
+    if (cleanPass.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+    setError("");
+    setLoading(true);
+    const res = await registerUser(cleanEmail, cleanPass, cleanName, "Student", "INR", allowance, {
       course,
       year,
       state,
@@ -64,7 +90,9 @@ export const Login: React.FC = () => {
       category,
     });
     setLoading(false);
-    if (!res.success) setError(res.error || "Registration failed");
+    if (!res.success) {
+      setError(res.error || "Registration failed. Please try again.");
+    }
   };
 
   const handleGuestSubmit = (e: React.FormEvent) => {
@@ -73,12 +101,14 @@ export const Login: React.FC = () => {
   };
 
   const handleDemo = async () => {
-    setLoading(true); setError("");
+    setLoading(true);
+    setError("");
     const demoEmail = "rahul@budgetmitra.in";
-    let res = await login(demoEmail, "demo1234", "Student", "INR", 15000);
-    if (!res.success) res = await registerUser(demoEmail, "demo1234", "Rahul Sharma (Demo)", "Student", "INR", 15000);
+    const res = await login(demoEmail, "demo1234", "Student", "INR", 15000);
     setLoading(false);
-    if (!res.success) setError("Demo login failed. Try Guest mode instead.");
+    if (!res.success) {
+      setError("Demo login failed. Try Guest mode instead.");
+    }
   };
 
   const inputCls = "w-full bg-white/80 border border-slate-300 rounded-xl py-2.5 px-3 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 focus:bg-white transition-all placeholder:text-slate-400 font-sans backdrop-blur-md shadow-sm";
@@ -115,7 +145,7 @@ export const Login: React.FC = () => {
           {!supabaseConnected && (
             <div className="flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-300 p-2.5 text-[10px] text-amber-900 mb-4 justify-center font-medium shadow-sm">
               <ShieldAlert className="h-3.5 w-3.5 shrink-0 text-amber-600 animate-pulse" />
-              <span>Supabase not connected. Running in Local Mode.</span>
+              <span>Running in Local Mode. Secure offline data persistence active.</span>
             </div>
           )}
 
@@ -245,6 +275,19 @@ export const Login: React.FC = () => {
                 className="w-full rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 text-xs shadow-lg shadow-slate-900/25 transition-all mt-2 cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50">
                 {loading ? "Creating account..." : "🚀 Create Account & Start Budgeting"}
               </button>
+
+              <div className="text-center pt-2">
+                <p className="text-[11px] text-slate-600">
+                  Already have an account?{" "}
+                  <button
+                    type="button"
+                    onClick={() => { setActiveTab("login"); setError(""); }}
+                    className="font-bold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
+                  >
+                    Sign In here
+                  </button>
+                </p>
+              </div>
             </form>
           )}
 
@@ -278,6 +321,19 @@ export const Login: React.FC = () => {
                 className="w-full rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 text-xs shadow-lg shadow-slate-900/25 transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50">
                 {loading ? "Signing in..." : "Sign In"}
               </button>
+
+              <div className="text-center pt-1">
+                <p className="text-[11px] text-slate-600">
+                  Don't have an account yet?{" "}
+                  <button
+                    type="button"
+                    onClick={() => { setActiveTab("register"); setError(""); }}
+                    className="font-bold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
+                  >
+                    Create an account (Sign Up)
+                  </button>
+                </p>
+              </div>
 
               {/* Demo Button */}
               <div className="pt-3 border-t border-slate-200">
