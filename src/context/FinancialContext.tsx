@@ -5,6 +5,7 @@ import { calculateHealthScore } from "../utils/health";
 import type { HealthBreakdown } from "../utils/health";
 import { syncTransactionsToGoogleSheets } from "../services/sheetsSync";
 import { supabase, isSupabaseConfigured } from "../utils/supabase/client";
+import { hashPassword, isPlaintextPassword } from "../utils/security";
 import {
   DEFAULT_PROFILE_USD_STUDENT,
   DEFAULT_BUDGETS_USD_STUDENT,
@@ -158,13 +159,17 @@ const findUserAccountInRegistry = (email: string): UserAccount | undefined => {
   return accounts[email.toLowerCase().trim()];
 };
 
+// Pre-computed SHA-256 of "demo1234" — avoids async init in a sync context.
+// Verified value: hashPassword("demo1234") === this digest.
+const DEMO_PASSWORD_HASH = "0ead2060b65992dca4769af601a1b3a35ef38cfad2c2c465bb160ea764157c5d";
+
 const ensureDemoAccount = (): UserAccount => {
   const demoEmail = "rahul@budgetmitra.in";
   let demo = findUserAccountInRegistry(demoEmail);
   if (!demo) {
     demo = {
       email: demoEmail,
-      password: "demo1234",
+      password: DEMO_PASSWORD_HASH,
       name: "Rahul Sharma (Demo)",
       userType: "Student",
       currency: "INR",
@@ -175,6 +180,10 @@ const ensureDemoAccount = (): UserAccount => {
       loans: DEFAULT_LOANS_INR_STUDENT,
       createdAt: new Date().toISOString(),
     };
+    saveUserAccountToRegistry(demo);
+  } else if (isPlaintextPassword(demo.password)) {
+    // Migrate legacy plaintext demo password to hashed form
+    demo.password = DEMO_PASSWORD_HASH;
     saveUserAccountToRegistry(demo);
   }
   return demo;
@@ -649,6 +658,8 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   ): Promise<{ success: boolean; error?: string }> => {
     const normalizedEmail = email.trim().toLowerCase();
     const trimmedPassword = password.trim();
+    // Hash the input password once for all comparisons
+    const inputHash = await hashPassword(trimmedPassword);
 
     setUserTypeState(selectedUserType);
     setCurrencyState(selectedCurrency);
@@ -657,7 +668,19 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const existingAccount = findUserAccountInRegistry(normalizedEmail);
 
     if (existingAccount) {
-      if (existingAccount.password === trimmedPassword) {
+      // ── Migration shim: silently re-hash any legacy plaintext stored password ──
+      if (isPlaintextPassword(existingAccount.password)) {
+        const legacyHash = await hashPassword(existingAccount.password);
+        if (legacyHash === inputHash) {
+          // Correct password — upgrade stored entry to hashed form
+          existingAccount.password = inputHash;
+          saveUserAccountToRegistry(existingAccount);
+        } else {
+          return { success: false, error: "Incorrect password. Please verify your password and try again." };
+        }
+      }
+      // ── Normal hashed comparison ──
+      if (existingAccount.password === inputHash) {
         setIsAuthenticated(true);
         setIsGuest(false);
         localStorage.setItem("bm_current_user_email", normalizedEmail);
@@ -694,7 +717,7 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
 
     // 2. Check if it's the demo account
-    if (normalizedEmail === "rahul@budgetmitra.in" && trimmedPassword === "demo1234") {
+    if (normalizedEmail === "rahul@budgetmitra.in" && inputHash === DEMO_PASSWORD_HASH) {
       const demo = ensureDemoAccount();
       setIsAuthenticated(true);
       setIsGuest(false);
@@ -731,10 +754,10 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             setLoans(data.loans);
             setDbProfileId(data.profileId);
 
-            // Sync to local account storage
+            // Sync to local account storage (store hash, never plaintext)
             saveUserAccountToRegistry({
               email: normalizedEmail,
-              password: trimmedPassword,
+              password: inputHash,
               name: data.profile.name,
               userType: selectedUserType,
               currency: selectedCurrency,
@@ -822,10 +845,13 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
     }
 
+    // Hash password before persisting — never store plaintext
+    const passwordHash = await hashPassword(trimmedPassword);
+
     // Save to local registry so login ALWAYS works immediately
     const userAccount: UserAccount = {
       email: normalizedEmail,
-      password: trimmedPassword,
+      password: passwordHash,
       name: cleanName,
       userType: selectedUserType,
       currency: selectedCurrency,

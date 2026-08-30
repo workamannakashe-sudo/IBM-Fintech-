@@ -86,3 +86,26 @@ export function maskSecretKey(secret: string): string {
   if (secret.length <= 8) return "••••••••";
   return `${secret.slice(0, 4)}••••••••${secret.slice(-4)}`;
 }
+
+/**
+ * Hashes a plaintext password with SHA-256 using the browser's built-in
+ * Web Crypto API. Returns a lowercase hex string (64 characters).
+ * No external dependencies required.
+ */
+export async function hashPassword(plain: string): Promise<string> {
+  const msgBuffer = new TextEncoder().encode(plain.trim());
+  const hashBuffer = await crypto.subtle.digest("SHA-256", msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Detects whether a stored password value is an unhashed legacy plaintext
+ * entry (i.e. NOT a 64-character lowercase hex SHA-256 digest).
+ * Used by the one-time migration shim at login time.
+ */
+export function isPlaintextPassword(stored: string): boolean {
+  if (!stored) return false;
+  // A valid SHA-256 hex digest is always exactly 64 lowercase hex chars
+  return !/^[0-9a-f]{64}$/.test(stored);
+}

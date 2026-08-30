@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { FinancialProvider, useFinancial } from "./context/FinancialContext";
 import { GamificationProvider } from "./context/GamificationContext";
 import { ThemeProvider } from "./context/ThemeContext";
@@ -10,16 +10,25 @@ import { QuickLogModal } from "./components/QuickLogModal";
 import { BadgeCelebrationModal } from "./components/BadgeCelebrationModal";
 import { Login } from "./pages/Login";
 
-// Sub-pages tabs
-import { Dashboard } from "./pages/Dashboard";
-import { Expenses } from "./pages/Expenses";
-import { Affordability } from "./pages/Affordability";
-import { SplitBill } from "./pages/SplitBill";
-import { Loans } from "./pages/Loans";
-import { Scholarships } from "./pages/Scholarships";
-import { Budget } from "./pages/Budget";
-import { Habits } from "./pages/Habits";
-import { Advisor } from "./pages/Advisor";
+// ── Lazily loaded sub-pages — each lands in its own JS chunk ──────────────
+const Dashboard     = lazy(() => import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })));
+const Expenses      = lazy(() => import("./pages/Expenses").then((m) => ({ default: m.Expenses })));
+const Affordability = lazy(() => import("./pages/Affordability").then((m) => ({ default: m.Affordability })));
+const SplitBill     = lazy(() => import("./pages/SplitBill").then((m) => ({ default: m.SplitBill })));
+const Loans         = lazy(() => import("./pages/Loans").then((m) => ({ default: m.Loans })));
+const Scholarships  = lazy(() => import("./pages/Scholarships").then((m) => ({ default: m.Scholarships })));
+const Budget        = lazy(() => import("./pages/Budget").then((m) => ({ default: m.Budget })));
+const Habits        = lazy(() => import("./pages/Habits").then((m) => ({ default: m.Habits })));
+const Advisor       = lazy(() => import("./pages/Advisor").then((m) => ({ default: m.Advisor })));
+
+/** Minimal in-layout fallback shown while a lazy page chunk loads. */
+function PageLoader() {
+  return (
+    <div className="flex-1 flex items-center justify-center py-24 opacity-40 text-sm tracking-wide">
+      Loading…
+    </div>
+  );
+}
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -77,8 +86,10 @@ function AppContent() {
             setActiveTab={setActiveTab}
           />
 
-          {/* Active Sub-page Component */}
-          {renderActivePage()}
+          {/* Active Sub-page Component — wrapped in Suspense for lazy chunks */}
+          <Suspense fallback={<PageLoader />}>
+            {renderActivePage()}
+          </Suspense>
         </main>
       </div>
 
