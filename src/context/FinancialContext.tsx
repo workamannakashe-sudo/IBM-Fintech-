@@ -658,65 +658,12 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   ): Promise<{ success: boolean; error?: string }> => {
     const normalizedEmail = email.trim().toLowerCase();
     const trimmedPassword = password.trim();
-    // Hash the input password once for all comparisons
     const inputHash = await hashPassword(trimmedPassword);
 
     setUserTypeState(selectedUserType);
     setCurrencyState(selectedCurrency);
 
-    // 1. Check local user account registry first (instant, secure & offline-ready)
-    const existingAccount = findUserAccountInRegistry(normalizedEmail);
-
-    if (existingAccount) {
-      // ── Migration shim: silently re-hash any legacy plaintext stored password ──
-      if (isPlaintextPassword(existingAccount.password)) {
-        const legacyHash = await hashPassword(existingAccount.password);
-        if (legacyHash === inputHash) {
-          // Correct password — upgrade stored entry to hashed form
-          existingAccount.password = inputHash;
-          saveUserAccountToRegistry(existingAccount);
-        } else {
-          return { success: false, error: "Incorrect password. Please verify your password and try again." };
-        }
-      }
-      // ── Normal hashed comparison ──
-      if (existingAccount.password === inputHash) {
-        setIsAuthenticated(true);
-        setIsGuest(false);
-        localStorage.setItem("bm_current_user_email", normalizedEmail);
-
-        const loadedProfile = {
-          ...existingAccount.profile,
-          monthlyAllowance: monthlyAllowance || existingAccount.profile.monthlyAllowance || (selectedCurrency === "INR" ? 15000 : 650),
-        };
-        setProfile(loadedProfile);
-        setBudgets(
-          existingAccount.budgets ||
-            (existingAccount.currency === "INR" ? DEFAULT_BUDGETS_INR_STUDENT : DEFAULT_BUDGETS_USD_STUDENT)
-        );
-        setTransactions(
-          existingAccount.transactions ||
-            (existingAccount.currency === "INR" ? SEED_TRANSACTIONS_INR_STUDENT : SEED_TRANSACTIONS_USD_STUDENT)
-        );
-        setGoals(
-          existingAccount.goals ||
-            (existingAccount.currency === "INR" ? DEFAULT_GOALS_INR_STUDENT : DEFAULT_GOALS_USD_STUDENT)
-        );
-        setLoans(
-          existingAccount.loans ||
-            (existingAccount.currency === "INR" ? DEFAULT_LOANS_INR_STUDENT : DEFAULT_LOANS_USD_STUDENT)
-        );
-        if (existingAccount.currency) setCurrencyState(existingAccount.currency);
-        if (existingAccount.userType) setUserTypeState(existingAccount.userType);
-        if (existingAccount.dbProfileId) setDbProfileId(existingAccount.dbProfileId);
-
-        return { success: true };
-      } else {
-        return { success: false, error: "Incorrect password. Please verify your password and try again." };
-      }
-    }
-
-    // 2. Check if it's the demo account
+    // ── STEP 1: Demo account — always served locally, no network required ──
     if (normalizedEmail === "rahul@budgetmitra.in" && inputHash === DEMO_PASSWORD_HASH) {
       const demo = ensureDemoAccount();
       setIsAuthenticated(true);
@@ -732,48 +679,95 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return { success: true };
     }
 
-    // 3. Fallback to Supabase Authentication only if configured with valid live credentials
+    // ── STEP 2: Supabase PRIMARY auth (when configured with real credentials) ──
     if (isSupabaseConfigured()) {
       try {
-        const { data: authData, error } = await supabase.auth.signInWithPassword({
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
           email: normalizedEmail,
           password: trimmedPassword,
         });
 
-        if (!error && authData?.user) {
+        if (authData?.user && !authError) {
           setIsAuthenticated(true);
           setIsGuest(false);
           localStorage.setItem("bm_current_user_email", normalizedEmail);
 
-          const data = await loadUserSupabaseData(normalizedEmail);
-          if (data) {
-            setProfile(data.profile);
-            setTransactions(data.transactions);
-            setBudgets(data.budgets);
-            setGoals(data.goals);
-            setLoans(data.loans);
-            setDbProfileId(data.profileId);
+          const remoteData = await loadUserSupabaseData(normalizedEmail);
+          if (remoteData) {
+            setProfile(remoteData.profile);
+            setTransactions(remoteData.transactions);
+            setBudgets(remoteData.budgets);
+            setGoals(remoteData.goals);
+            setLoans(remoteData.loans);
+            setDbProfileId(remoteData.profileId);
 
-            // Sync to local account storage (store hash, never plaintext)
+            // Cache to localStorage (hashed password, never plaintext)
             saveUserAccountToRegistry({
               email: normalizedEmail,
               password: inputHash,
-              name: data.profile.name,
+              name: remoteData.profile.name,
               userType: selectedUserType,
               currency: selectedCurrency,
-              profile: data.profile,
-              budgets: data.budgets,
-              transactions: data.transactions,
-              goals: data.goals,
-              loans: data.loans,
-              dbProfileId: data.profileId,
+              profile: remoteData.profile,
+              budgets: remoteData.budgets,
+              transactions: remoteData.transactions,
+              goals: remoteData.goals,
+              loans: remoteData.loans,
+              dbProfileId: remoteData.profileId,
               createdAt: new Date().toISOString(),
             });
           }
           return { success: true };
         }
-      } catch (err: any) {
-        console.warn("Supabase remote sign-in warning:", err);
+
+        // Hard auth failure (4xx from Supabase) — wrong credentials, fail immediately
+        if (authError && authError.status && authError.status < 500) {
+          return { success: false, error: "Incorrect email or password. Please try again." };
+        }
+
+        // Supabase 5xx / network error — fall through to offline cache
+        console.warn("[Auth] Supabase unavailable, checking offline cache:", authError?.message);
+      } catch (networkErr) {
+        console.warn("[Auth] Supabase network error, checking offline cache:", networkErr);
+      }
+    }
+
+    // ── STEP 3: Offline local cache (no network needed, or Supabase not configured) ──
+    const existingAccount = findUserAccountInRegistry(normalizedEmail);
+
+    if (existingAccount) {
+      // Migration shim: silently re-hash any legacy plaintext stored password
+      if (isPlaintextPassword(existingAccount.password)) {
+        const legacyHash = await hashPassword(existingAccount.password);
+        if (legacyHash === inputHash) {
+          existingAccount.password = inputHash;
+          saveUserAccountToRegistry(existingAccount);
+        } else {
+          return { success: false, error: "Incorrect password. Please verify your password and try again." };
+        }
+      }
+
+      if (existingAccount.password === inputHash) {
+        setIsAuthenticated(true);
+        setIsGuest(false);
+        localStorage.setItem("bm_current_user_email", normalizedEmail);
+
+        const loadedProfile = {
+          ...existingAccount.profile,
+          monthlyAllowance: monthlyAllowance || existingAccount.profile.monthlyAllowance || (selectedCurrency === "INR" ? 15000 : 650),
+        };
+        setProfile(loadedProfile);
+        setBudgets(existingAccount.budgets || (existingAccount.currency === "INR" ? DEFAULT_BUDGETS_INR_STUDENT : DEFAULT_BUDGETS_USD_STUDENT));
+        setTransactions(existingAccount.transactions || (existingAccount.currency === "INR" ? SEED_TRANSACTIONS_INR_STUDENT : SEED_TRANSACTIONS_USD_STUDENT));
+        setGoals(existingAccount.goals || (existingAccount.currency === "INR" ? DEFAULT_GOALS_INR_STUDENT : DEFAULT_GOALS_USD_STUDENT));
+        setLoans(existingAccount.loans || (existingAccount.currency === "INR" ? DEFAULT_LOANS_INR_STUDENT : DEFAULT_LOANS_USD_STUDENT));
+        if (existingAccount.currency) setCurrencyState(existingAccount.currency);
+        if (existingAccount.userType) setUserTypeState(existingAccount.userType);
+        if (existingAccount.dbProfileId) setDbProfileId(existingAccount.dbProfileId);
+
+        return { success: true };
+      } else {
+        return { success: false, error: "Incorrect password. Please verify your password and try again." };
       }
     }
 

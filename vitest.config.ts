@@ -8,5 +8,8 @@ export default defineConfig({
     environment: "happy-dom",
     globals: true,
     setupFiles: [],
+    // Exclude Playwright E2E tests — they run via `npm run e2e`
+    exclude: ["e2e/**", "node_modules/**"],
   },
 });
+
