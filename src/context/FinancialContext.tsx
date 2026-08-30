@@ -662,7 +662,11 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setIsGuest(false);
         localStorage.setItem("bm_current_user_email", normalizedEmail);
 
-        setProfile(existingAccount.profile);
+        const loadedProfile = {
+          ...existingAccount.profile,
+          monthlyAllowance: monthlyAllowance || existingAccount.profile.monthlyAllowance || (selectedCurrency === "INR" ? 15000 : 650),
+        };
+        setProfile(loadedProfile);
         setBudgets(
           existingAccount.budgets ||
             (existingAccount.currency === "INR" ? DEFAULT_BUDGETS_INR_STUDENT : DEFAULT_BUDGETS_USD_STUDENT)
