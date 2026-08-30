@@ -720,13 +720,11 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           return { success: true };
         }
 
-        // Hard auth failure (4xx from Supabase) — wrong credentials, fail immediately
-        if (authError && authError.status && authError.status < 500) {
-          return { success: false, error: "Incorrect email or password. Please try again." };
-        }
-
-        // Supabase 5xx / network error — fall through to offline cache
-        console.warn("[Auth] Supabase unavailable, checking offline cache:", authError?.message);
+        // Any Supabase error (4xx user-not-found, wrong-password, 5xx, network) →
+        // fall through to offline local cache, which is the definitive credential store
+        // for locally-registered accounts. Supabase returns the same 400 for both
+        // "user not found" and "wrong password" so we cannot hard-fail here.
+        console.warn("[Auth] Supabase auth did not succeed, checking offline cache:", authError?.message);
       } catch (networkErr) {
         console.warn("[Auth] Supabase network error, checking offline cache:", networkErr);
       }
