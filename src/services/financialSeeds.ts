@@ -212,3 +212,68 @@ export const DEFAULT_LOANS_USD_PROFESSIONAL: StudentLoan[] = [
 export const DEFAULT_LOANS_INR_PROFESSIONAL: StudentLoan[] = [
   { id: "l1", name: "HDFC Education Loan", principal: 800000, interestRate: 8.75, termMonths: 84, extraPayment: 3000, type: "Subsidized" },
 ];
+
+// ─── Guest Habits Demo Data ───────────────────────────────────────────────────
+// Generates realistic recent transactions (today-relative) so the Habits page
+// heatmap and spending streak show live data for guest users.
+const getPastDate = (daysAgo: number): string => {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  return d.toISOString().split("T")[0];
+};
+
+export const generateGuestTransactions = (): Transaction[] => [
+  // Today — slight overspend to trigger the alert
+  { id: "g_t1",  date: getPastDate(0),  description: "Zomato dinner order",          amount: 680,  category: "food",          isAnomaly: false },
+  { id: "g_t2",  date: getPastDate(0),  description: "Auto-rickshaw to college",     amount: 80,   category: "travel",        isAnomaly: false },
+  // Yesterday — within budget
+  { id: "g_t3",  date: getPastDate(1),  description: "Mess lunch coupon",            amount: 120,  category: "food",          isAnomaly: false },
+  { id: "g_t4",  date: getPastDate(1),  description: "Metro token to library",       amount: 40,   category: "travel",        isAnomaly: false },
+  // 2 days ago — within budget
+  { id: "g_t5",  date: getPastDate(2),  description: "Campus canteen breakfast",     amount: 55,   category: "food",          isAnomaly: false },
+  { id: "g_t6",  date: getPastDate(2),  description: "YouTube Premium monthly",      amount: 79,   category: "entertainment",  isAnomaly: false },
+  // 3 days ago — within budget
+  { id: "g_t7",  date: getPastDate(3),  description: "Kirana store snacks",          amount: 210,  category: "food",          isAnomaly: false },
+  { id: "g_t8",  date: getPastDate(3),  description: "Shared Ola to station",        amount: 95,   category: "travel",        isAnomaly: false },
+  // 4 days ago — slightly over budget (amber day)
+  { id: "g_t9",  date: getPastDate(4),  description: "Dominos pizza party",          amount: 820,  category: "food",          isAnomaly: true,  anomalyExplanation: "₹820 on food is 2.3x your daily average. Bob suggests sticking to mess coupons!" },
+  { id: "g_t10", date: getPastDate(4),  description: "MovieMax cinema ticket",       amount: 250,  category: "entertainment",  isAnomaly: false },
+  // 5 days ago — within budget
+  { id: "g_t11", date: getPastDate(5),  description: "Mess monthly coupon top-up",  amount: 300,  category: "food",          isAnomaly: false },
+  // 6 days ago — within budget
+  { id: "g_t12", date: getPastDate(6),  description: "Chai and samosa stall",        amount: 45,   category: "food",          isAnomaly: false },
+  { id: "g_t13", date: getPastDate(6),  description: "City bus pass weekly",         amount: 70,   category: "travel",        isAnomaly: false },
+  // 7 days ago — over budget (red day)
+  { id: "g_t14", date: getPastDate(7),  description: "Online shopping spree",        amount: 1200, category: "other",         isAnomaly: true,  anomalyExplanation: "₹1,200 miscellaneous spend detected — 3x your usual daily limit. Consider the 24-hour rule before impulsive buys!" },
+  // 8 days ago — within budget
+  { id: "g_t15", date: getPastDate(8),  description: "Pharmacy medicines",           amount: 180,  category: "other",         isAnomaly: false },
+  { id: "g_t16", date: getPastDate(8),  description: "Momos stall evening snack",    amount: 60,   category: "food",          isAnomaly: false },
+  // 9 days ago — within budget
+  { id: "g_t17", date: getPastDate(9),  description: "Engineering notebook set",     amount: 220,  category: "books",         isAnomaly: false },
+  // 10 days ago — within budget
+  { id: "g_t18", date: getPastDate(10), description: "Morning chai + toast",         amount: 35,   category: "food",          isAnomaly: false },
+  { id: "g_t19", date: getPastDate(10), description: "Auto fare shared commute",     amount: 50,   category: "travel",        isAnomaly: false },
+  // 11 days ago — within budget
+  { id: "g_t20", date: getPastDate(11), description: "Supermarket weekly groceries", amount: 480,  category: "food",          isAnomaly: false },
+  // Older transactions for context
+  { id: "g_t21", date: getPastDate(15), description: "PG hostel rent (half month)",  amount: 3500, category: "rent",          isAnomaly: false },
+  { id: "g_t22", date: getPastDate(18), description: "Spotify student subscription", amount: 59,   category: "entertainment",  isAnomaly: false },
+  { id: "g_t23", date: getPastDate(22), description: "College lab fees",             amount: 500,  category: "books",         isAnomaly: false },
+];
+
+// Pre-seeded gamification state for guest — stored directly in localStorage
+// by loginAsGuest so Habits page shows a realistic demo immediately.
+export const GUEST_GAMIFICATION_SEED = {
+  xp: 240,
+  level: 1,
+  streak: 5,   // will be recomputed from transactions, but pre-seed for safety
+  badges: [
+    { id: "b1", name: "Budget Rookie", description: "Log your first expense transaction.", iconName: "Coins", unlockedAt: getPastDate(10) },
+    { id: "b2", name: "Streak Starter", description: "Maintain a 3-day financial logging streak.", iconName: "Flame", unlockedAt: getPastDate(5) },
+  ],
+  loggingHistory: [
+    getPastDate(11), getPastDate(10), getPastDate(9), getPastDate(8),
+    getPastDate(7),  getPastDate(6),  getPastDate(5), getPastDate(4),
+    getPastDate(3),  getPastDate(2),  getPastDate(1), getPastDate(0),
+  ],
+};

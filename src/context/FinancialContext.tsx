@@ -27,6 +27,8 @@ import {
   SEED_TRANSACTIONS_INR_PROFESSIONAL,
   DEFAULT_GOALS_INR_PROFESSIONAL,
   DEFAULT_LOANS_INR_PROFESSIONAL,
+  generateGuestTransactions,
+  GUEST_GAMIFICATION_SEED,
 } from "../services/financialSeeds";
 import { loadUserSupabaseData } from "../services/supabaseFinancial";
 
@@ -880,24 +882,63 @@ export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setIsAuthenticated(true);
     setIsGuest(true);
 
+    const allowance = monthlyAllowance || (selectedCurrency === "INR" ? 12000 : 500);
+
     const guestProfile: StudentProfile = {
       name: "Guest Student",
-      major: "General Academics",
-      gpa: 3.5,
-      academicYear: "1st Year",
+      major: "B.Tech Computer Science",
+      gpa: 7.8,
+      academicYear: "2nd Year",
       incomeTier: "1-3L",
       firstGen: false,
       interests: ["Campus Life", "Smart Budgeting"],
-      monthlyAllowance: monthlyAllowance || (selectedCurrency === "INR" ? 12000 : 500),
+      monthlyAllowance: allowance,
       course: "B.Tech",
-      year: 1,
-      state: "All India",
+      year: 2,
+      state: "Maharashtra",
       income_bracket: "1-3L",
       category: "Gen",
       preferred_language: "en",
     };
 
+    // Seed financial data so all pages have demo content
+    const guestBudgets: Record<string, number> = selectedCurrency === "INR"
+      ? { food: 4000, rent: 5000, travel: 1200, entertainment: 800, books: 1000, other: 1000 }
+      : { food: 150, rent: 250, travel: 40, entertainment: 30, books: 30, other: 50 };
+
+    const guestGoals = selectedCurrency === "INR"
+      ? [
+          { id: "gg1", name: "Emergency Tech Reserve", target: 15000, current: 6500 },
+          { id: "gg2", name: "Goa Trip Pool", target: 8000, current: 2000 },
+        ]
+      : [
+          { id: "gg1", name: "Laptop Upgrade Fund", target: 800, current: 320 },
+          { id: "gg2", name: "Vacation Savings", target: 400, current: 100 },
+        ];
+
+    const guestLoans = selectedCurrency === "INR"
+      ? [
+          { id: "gl1", name: "Vidya Lakshmi Education Loan", principal: 200000, interestRate: 8.5, termMonths: 60, extraPayment: 500, type: "Subsidized" as const },
+        ]
+      : [
+          { id: "gl1", name: "Federal Student Loan", principal: 5000, interestRate: 4.99, termMonths: 120, extraPayment: 20, type: "Subsidized" as const },
+        ];
+
+    const guestTransactions = selectedCurrency === "INR" ? generateGuestTransactions() : [];
+
     setProfile(guestProfile);
+    setBudgets(guestBudgets);
+    setGoals(guestGoals);
+    setLoans(guestLoans);
+    if (guestTransactions.length > 0) setTransactions(guestTransactions);
+
+    // Pre-seed gamification state into localStorage so GamificationContext
+    // picks it up on next render (it reads from localStorage on init).
+    localStorage.setItem("bm_xp", String(GUEST_GAMIFICATION_SEED.xp));
+    localStorage.setItem("bm_level", String(GUEST_GAMIFICATION_SEED.level));
+    localStorage.setItem("bm_streak", String(GUEST_GAMIFICATION_SEED.streak));
+    localStorage.setItem("bm_badges", JSON.stringify(GUEST_GAMIFICATION_SEED.badges));
+    localStorage.setItem("bm_logging_history", JSON.stringify(GUEST_GAMIFICATION_SEED.loggingHistory));
   };
 
   const logout = async () => {

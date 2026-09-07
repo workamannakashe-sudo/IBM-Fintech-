@@ -11,7 +11,10 @@ import {
   Utensils,
   Plane,
   Home,
-  Film
+  Film,
+  QrCode,
+  Smartphone,
+  Sparkles,
 } from "lucide-react";
 
 interface Friend {
@@ -20,32 +23,35 @@ interface Friend {
   avatar: string;
   selected: boolean;
   amountOwed: number;
+  upiId?: string;
 }
 
 const INITIAL_FRIENDS: Friend[] = [
-  { id: "f1", name: "Jony L.", avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80", selected: true, amountOwed: 0 },
-  { id: "f2", name: "Amy J.", avatar: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=120&auto=format&fit=crop&q=80", selected: true, amountOwed: 0 },
-  { id: "f3", name: "Lisa M.", avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&auto=format&fit=crop&q=80", selected: true, amountOwed: 0 },
-  { id: "f4", name: "Drake G.", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80", selected: false, amountOwed: 0 },
-  { id: "f5", name: "Sarah K.", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&auto=format&fit=crop&q=80", selected: false, amountOwed: 0 },
-  { id: "f6", name: "Rohan S.", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&auto=format&fit=crop&q=80", selected: false, amountOwed: 0 },
+  { id: "f1", name: "Rohan S.", avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80", selected: true, amountOwed: 0, upiId: "rohan@okhdfcbank" },
+  { id: "f2", name: "Sneha P.", avatar: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=120&auto=format&fit=crop&q=80", selected: true, amountOwed: 0, upiId: "sneha@okaxis" },
+  { id: "f3", name: "Priyansh K.", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80", selected: true, amountOwed: 0, upiId: "priyansh@paytm" },
+  { id: "f4", name: "Neha M.", avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&auto=format&fit=crop&q=80", selected: false, amountOwed: 0, upiId: "neha@ybl" },
+  { id: "f5", name: "Aman N.", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&auto=format&fit=crop&q=80", selected: false, amountOwed: 0, upiId: "aman@upi" },
+  { id: "f6", name: "Tanvi D.", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&auto=format&fit=crop&q=80", selected: false, amountOwed: 0, upiId: "tanvi@okicici" },
 ];
 
 const PRESET_ACTIVITIES = [
-  { title: "Le Ju' Bistro Dinner", amount: 1230, category: "Food & Dining", icon: Utensils },
-  { title: "Hostel Flat Electricity & Wifi", amount: 2400, category: "Housing & Rent", icon: Home },
-  { title: "Weekend Goa Roadtrip Pool", amount: 6500, category: "Travel & Commute", icon: Plane },
-  { title: "Cinema IMAX Group Tickets", amount: 1600, category: "Entertainment", icon: Film },
+  { title: "Hostel Biryani & Chai Night", amount: 1250, category: "Food & Dining", icon: Utensils },
+  { title: "Flat Electricity & Wifi Bill", amount: 2400, category: "Housing & Rent", icon: Home },
+  { title: "Lonavala Weekend Roadtrip", amount: 5800, category: "Travel & Commute", icon: Plane },
+  { title: "IMAX Movie Group Booking", amount: 1800, category: "Entertainment", icon: Film },
 ];
 
 export const SplitBill: React.FC = () => {
   const { currency, addTransaction } = useFinancial();
 
   const [billTotal, setBillTotal] = useState(currency === "INR" ? "1230" : "123.00");
-  const [eventName, setEventName] = useState("Le Ju' Bistro Dinner");
+  const [eventName, setEventName] = useState("Hostel Biryani & Chai Night");
   const [friends, setFriends] = useState<Friend[]>(INITIAL_FRIENDS);
   const [copied, setCopied] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [payeeUpi, setPayeeUpi] = useState("rohan@okhdfcbank");
+  const [showQrModal, setShowQrModal] = useState(false);
 
   const formatAmt = (val: number) => {
     if (currency === "INR") {
@@ -58,6 +64,16 @@ export const SplitBill: React.FC = () => {
   const totalPeople = selectedFriends.length + 1; // user + selected friends
   const parsedTotal = parseFloat(billTotal) || 0;
   const equalPortion = parsedTotal > 0 ? parsedTotal / totalPeople : 0;
+
+  const upiPayUri = `upi://pay?pa=${encodeURIComponent(payeeUpi)}&pn=${encodeURIComponent(
+    eventName
+  )}&am=${Math.round(equalPortion)}&cu=INR&tn=${encodeURIComponent(
+    `BudgetMitra: ${eventName}`
+  )}`;
+
+  const upiQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(
+    upiPayUri
+  )}`;
 
   const toggleFriend = (id: string) => {
     setFriends(prev =>
@@ -104,10 +120,10 @@ export const SplitBill: React.FC = () => {
             <div className="w-10 h-10 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/30">
               <Receipt className="w-5 h-5" />
             </div>
-            Split the Bill Hub
+            Split the Bill & UPI Pay
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 mt-1">
-            Effortlessly split campus meals, flat groceries, and group trips with instant shareable links.
+            Split campus meals, flat bills & trip pools with instant 1-tap UPI links and QR codes.
           </p>
         </div>
 
@@ -141,49 +157,72 @@ export const SplitBill: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
-                Event / Merchant Name
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-zinc-300 block mb-1.5">
+                Activity / Expense Title
               </label>
               <input
                 type="text"
                 value={eventName}
                 onChange={(e) => setEventName(e.target.value)}
-                placeholder="e.g. Campus Mess, Flat Rent, Weekend Roadtrip"
-                className="w-full h-11 px-3.5 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-emerald-500 text-xs sm:text-sm font-semibold text-slate-900 dark:text-white outline-none"
+                placeholder="e.g. Swiggy Hostel Party"
+                className="w-full h-11 px-3.5 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-emerald-500 text-sm font-semibold text-slate-900 dark:text-white outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
-                Total Bill Amount
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-zinc-300 block mb-1.5">
+                Total Amount ({currency})
               </label>
               <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500 font-bold text-sm">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">
                   {currency === "INR" ? "₹" : "$"}
                 </span>
                 <input
                   type="number"
-                  step="any"
                   value={billTotal}
                   onChange={(e) => setBillTotal(e.target.value)}
-                  placeholder="0.00"
                   className="w-full h-11 pl-8 pr-3.5 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 focus:border-emerald-500 text-base font-bold text-slate-900 dark:text-white outline-none font-display"
                 />
               </div>
             </div>
           </div>
 
+          {/* Payee UPI ID configuration */}
+          <div className="p-4 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-800/40 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold uppercase tracking-wider text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+                <Smartphone className="w-3.5 h-3.5" /> Receive Payments at UPI ID:
+              </label>
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">GPay / PhonePe / Paytm</span>
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={payeeUpi}
+                onChange={(e) => setPayeeUpi(e.target.value)}
+                placeholder="yourname@okaxis"
+                className="flex-1 h-9 px-3 rounded-lg bg-white dark:bg-zinc-900 border border-emerald-300 dark:border-emerald-700 text-xs font-bold text-slate-900 dark:text-white outline-none"
+              />
+              <button
+                onClick={() => setShowQrModal(true)}
+                className="px-3 h-9 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+              >
+                <QrCode className="w-3.5 h-3.5" /> Show QR
+              </button>
+            </div>
+          </div>
+
           {/* Action Tools: Receipt OCR, WhatsApp Share, Copy Link */}
-          <div className="grid grid-cols-3 gap-3 pt-2">
+          <div className="grid grid-cols-3 gap-3 pt-1">
             <button
-              onClick={() => alert("Receipt uploaded & scanned successfully!")}
+              onClick={() => alert("Receipt OCR initialized: Upload bill photo to auto-extract items!")}
               className="p-3 rounded-2xl bg-slate-50 dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800 text-center transition-all cursor-pointer group"
             >
               <div className="w-8 h-8 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 flex items-center justify-center mx-auto mb-1 group-hover:scale-105 transition-transform">
                 <Upload className="w-4 h-4" />
               </div>
-              <span className="text-xs font-bold text-slate-800 dark:text-zinc-200 block">Scan Receipt</span>
-              <span className="text-[10px] text-slate-400">Auto OCR Extract</span>
+              <span className="text-xs font-bold text-slate-800 dark:text-zinc-200 block">Scan Bill</span>
+              <span className="text-[10px] text-slate-400">OCR Extract</span>
             </button>
 
             <button
@@ -194,15 +233,17 @@ export const SplitBill: React.FC = () => {
                 {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
               </div>
               <span className="text-xs font-bold text-slate-800 dark:text-zinc-200 block">
-                {copied ? "Copied!" : "Copy Request"}
+                {copied ? "Copied!" : "Copy Link"}
               </span>
-              <span className="text-[10px] text-slate-400">UPI / Payment Link</span>
+              <span className="text-[10px] text-slate-400">UPI Payment Link</span>
             </button>
 
             <button
               onClick={() => {
                 const url = `https://wa.me/?text=${encodeURIComponent(
-                  `Hey! Split request for ${eventName}: ${formatAmt(equalPortion)} per person via BudgetMitra.`
+                  `Hey! Please pay your share for *${eventName}*: ${formatAmt(
+                    equalPortion
+                  )} via UPI to ${payeeUpi}.\nPay Link: ${upiPayUri}`
                 )}`;
                 window.open(url, "_blank");
               }}
@@ -234,6 +275,7 @@ export const SplitBill: React.FC = () => {
                         avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80",
                         selected: true,
                         amountOwed: 0,
+                        upiId: `${name.toLowerCase().replace(/\s+/g, "")}@upi`,
                       },
                     ]);
                   }
@@ -275,7 +317,7 @@ export const SplitBill: React.FC = () => {
           </div>
         </div>
 
-        {/* RIGHT: Live Split Summary & Settlement (5 cols) */}
+        {/* RIGHT: Live Split Summary & UPI Settlement (5 cols) */}
         <div className="lg:col-span-5 rounded-3xl bg-gradient-to-br from-emerald-500 via-teal-600 to-emerald-700 text-white p-7 shadow-xl shadow-emerald-600/20 flex flex-col justify-between space-y-6">
           <div>
             <div className="flex items-center justify-between pb-4 border-b border-white/20">
@@ -303,6 +345,36 @@ export const SplitBill: React.FC = () => {
                 <span className="px-3 py-1 rounded-full bg-white text-slate-900 text-xs font-bold">
                   Logged in Expenses
                 </span>
+              </div>
+
+              {/* UPI Quick Action Card */}
+              <div className="p-4 rounded-2xl bg-white/15 backdrop-blur-md border border-white/25 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-emerald-100 font-bold flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300" /> UPI 1-Tap Settle
+                  </span>
+                  <button
+                    onClick={() => setShowQrModal(true)}
+                    className="text-[11px] font-bold text-white underline hover:text-emerald-200 cursor-pointer"
+                  >
+                    View QR Code
+                  </button>
+                </div>
+
+                <div className="flex gap-2">
+                  <a
+                    href={upiPayUri}
+                    className="flex-1 py-2 px-3 rounded-xl bg-white text-emerald-900 text-xs font-bold text-center flex items-center justify-center gap-1 hover:bg-emerald-50 transition-colors cursor-pointer shadow-sm"
+                  >
+                    <Smartphone className="w-3.5 h-3.5" /> Pay with UPI App
+                  </a>
+                  <button
+                    onClick={handleCopyLink}
+                    className="py-2 px-3 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    {copied ? "Copied!" : "Copy UPI Link"}
+                  </button>
+                </div>
               </div>
 
               <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 space-y-2">
@@ -344,8 +416,57 @@ export const SplitBill: React.FC = () => {
             </button>
           </div>
         </div>
-
       </div>
+
+      {/* UPI QR Modal */}
+      {showQrModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-[#18181f] border border-slate-200 dark:border-zinc-800 p-6 shadow-2xl text-center space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <QrCode className="w-4 h-4 text-emerald-500" /> Scan & Pay via UPI
+              </h3>
+              <button
+                onClick={() => setShowQrModal(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold"
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-zinc-900/60 flex flex-col items-center justify-center">
+              <img
+                src={upiQrUrl}
+                alt="UPI Payment QR Code"
+                className="w-40 h-40 rounded-xl bg-white p-2 border border-slate-200 shadow-sm"
+              />
+              <p className="text-xs font-bold text-slate-800 dark:text-white mt-3">{eventName}</p>
+              <p className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400 font-display">
+                {formatAmt(equalPortion)} / person
+              </p>
+              <p className="text-[11px] text-slate-400 font-mono mt-0.5">UPI ID: {payeeUpi}</p>
+            </div>
+
+            <div className="flex gap-2">
+              <a
+                href={upiPayUri}
+                className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+              >
+                <Smartphone className="w-3.5 h-3.5" /> Open in UPI App
+              </a>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(payeeUpi);
+                  alert("UPI ID copied!");
+                }}
+                className="py-2.5 px-3 rounded-xl border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-200 text-xs font-bold hover:bg-slate-50 dark:hover:bg-zinc-800"
+              >
+                Copy UPI ID
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

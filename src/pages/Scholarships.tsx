@@ -1,5 +1,5 @@
 // Scholarships.tsx - Enhanced Scholarship & Scheme Matcher with Dark/Light Support
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useFinancial } from "../context/FinancialContext";
 import { matchSchemesBob, type SchemeRow, type MatchedScheme } from "../services/gemini";
 import { supabase, isSupabaseConfigured } from "../utils/supabase/client";
@@ -13,7 +13,11 @@ import {
   ChevronDown,
   ChevronUp,
   IndianRupee,
-  Search
+  Search,
+  Star,
+  Trophy,
+  TrendingUp,
+  Zap,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -147,7 +151,71 @@ const FALLBACK_SCHEMES: SchemeRow[] = [
     apply_url: "https://mysy.guj.nic.in",
     description: "For meritorious Gujarat domicile students (80+ percentile in Class 12).",
   },
+  {
+    id: "f9",
+    name: "PM YASASVI Scheme for OBC / EBC / DNT",
+    type: "scholarship",
+    authority: "Ministry of Social Justice and Empowerment, GoI",
+    eligibility: {
+      income_max: 250000,
+      category: ["OBC", "EBC", "DNT"],
+      state: "all",
+      course_type: ["B.Tech", "B.Sc", "B.Com", "B.A", "Diploma", "BBA", "BCA"],
+    },
+    benefit: "Up to ₹75,000 to ₹1,25,000 per year towards tuition & hostel",
+    apply_url: "https://yet.nta.ac.in",
+    description: "National scholarship scheme for meritorious OBC, EBC and Nomadic tribe students.",
+  },
+  {
+    id: "f10",
+    name: "Kotak Kanya Scholarship for Girls",
+    type: "scholarship",
+    authority: "Kotak Education Foundation",
+    eligibility: {
+      income_max: 600000,
+      category: ["Gen", "OBC", "SC", "ST", "EWS"],
+      state: "all",
+      course_type: ["B.Tech", "MBBS", "B.Sc", "B.Arch", "LLB"],
+      gender: "female",
+    },
+    benefit: "₹1,50,000 per year until course completion",
+    apply_url: "https://kotakeducation.org",
+    description: "Financial assistance for meritorious girl students pursuing professional degree courses.",
+  },
+  {
+    id: "f11",
+    name: "Reliance Foundation Undergraduate Scholarship",
+    type: "scholarship",
+    authority: "Reliance Foundation",
+    eligibility: {
+      income_max: 1500000,
+      category: ["Gen", "OBC", "SC", "ST", "EWS"],
+      state: "all",
+      course_type: ["B.Tech", "B.E", "B.Sc", "B.Com", "B.A", "BBA", "BCA"],
+    },
+    benefit: "Up to ₹2,00,000 over duration of degree",
+    apply_url: "https://scholarships.reliancefoundation.org",
+    description: "Recognizing high-potential students across all streams based on merit-cum-means.",
+  },
+  {
+    id: "f12",
+    name: "AICTE Saksham Scheme for Differently Abled",
+    type: "scholarship",
+    authority: "AICTE",
+    eligibility: {
+      income_max: 800000,
+      category: ["Gen", "OBC", "SC", "ST", "EWS"],
+      state: "all",
+      course_type: ["B.Tech", "B.E", "Diploma", "B.Pharm", "MCA"],
+    },
+    benefit: "₹50,000 per annum towards college fee and equipment",
+    apply_url: "https://www.aicte-india.org",
+    description: "Empowering differently-abled students admitted to AICTE approved technical programs.",
+  },
 ];
+
+// Strength ranking for sorting
+const STRENGTH_RANK: Record<string, number> = { Strong: 3, Likely: 2, Possible: 1 };
 
 export const Scholarships: React.FC = () => {
   const { profile, preferredLanguage } = useFinancial();
@@ -212,23 +280,40 @@ export const Scholarships: React.FC = () => {
     setMatchDone(true);
   };
 
-  const displayedSchemes = (
-    matchDone && matches.length > 0
-      ? matches
-      : allSchemes.map((s) => ({
-          scheme_id: s.id,
-          scheme_name: s.name,
-          eligible: true,
-          match_strength: "Likely" as const,
-          eligibility_explanation: s.description,
-          how_to_apply: `Visit ${s.apply_url}`,
-          type: s.type,
-          authority: s.authority,
-          benefit: s.benefit,
-          apply_url: s.apply_url,
-          description: s.description,
-        }))
-  )
+  const allDisplayedSchemes = useMemo(() => {
+    return (
+      matchDone && matches.length > 0
+        ? matches
+        : allSchemes.map((s) => ({
+            scheme_id: s.id,
+            scheme_name: s.name,
+            eligible: true,
+            match_strength: "Likely" as const,
+            eligibility_explanation: s.description,
+            how_to_apply: `Visit ${s.apply_url}`,
+            type: s.type,
+            authority: s.authority,
+            benefit: s.benefit,
+            apply_url: s.apply_url,
+            description: s.description,
+          }))
+    );
+  }, [matchDone, matches, allSchemes]);
+
+  // Compute Top Picks — sorted by match strength descending
+  const topScholarship = useMemo(() => {
+    return [...allDisplayedSchemes]
+      .filter((m) => m.type === "scholarship" && m.eligible !== false)
+      .sort((a, b) => (STRENGTH_RANK[b.match_strength] || 0) - (STRENGTH_RANK[a.match_strength] || 0))[0] || null;
+  }, [allDisplayedSchemes]);
+
+  const topLoan = useMemo(() => {
+    return [...allDisplayedSchemes]
+      .filter((m) => m.type === "loan" && m.eligible !== false)
+      .sort((a, b) => (STRENGTH_RANK[b.match_strength] || 0) - (STRENGTH_RANK[a.match_strength] || 0))[0] || null;
+  }, [allDisplayedSchemes]);
+
+  const displayedSchemes = allDisplayedSchemes
     .filter((m) => filter === "all" || m.type === filter)
     .filter(
       (m) =>
@@ -303,6 +388,156 @@ export const Scholarships: React.FC = () => {
           </span>
         </div>
       </div>
+
+      {/* ─── AI TOP PICKS BANNER ─── */}
+      <AnimatePresence>
+        {matchDone && !matchLoading && (topScholarship || topLoan) && (
+          <motion.div
+            key="top-picks"
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+          >
+            {/* Section header */}
+            <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 px-3 py-1 shadow-sm">
+                <Star className="h-3.5 w-3.5 text-white fill-white" />
+                <span className="text-[11px] font-extrabold text-white tracking-wide uppercase">
+                  AI Top Picks — Recommended for You
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-400 dark:text-zinc-500">
+                Personalized by IBM Bob based on your profile
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Top Scholarship Card */}
+              {topScholarship && (
+                <motion.div
+                  initial={{ opacity: 0, x: -16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: 0.05 }}
+                  className="relative rounded-2xl overflow-hidden border border-blue-200/80 dark:border-cyan-800/40 bg-gradient-to-br from-blue-50 via-white to-cyan-50 dark:from-blue-950/50 dark:via-zinc-900 dark:to-cyan-950/30 p-5 shadow-md shadow-blue-100/60 dark:shadow-blue-950/40"
+                >
+                  {/* Decorative glow */}
+                  <div className="pointer-events-none absolute -top-8 -right-8 h-32 w-32 rounded-full bg-blue-400/10 dark:bg-cyan-400/5 blur-2xl" />
+
+                  {/* Label */}
+                  <div className="flex items-center gap-1.5 mb-3">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 dark:bg-cyan-500 shadow-sm">
+                      <Trophy className="h-4 w-4 text-white dark:text-slate-950" />
+                    </div>
+                    <span className="text-[10px] font-extrabold text-blue-700 dark:text-cyan-400 uppercase tracking-widest">
+                      Best Scholarship
+                    </span>
+                  </div>
+
+                  {/* Name */}
+                  <h3 className="font-display font-extrabold text-sm text-slate-900 dark:text-white leading-snug mb-1">
+                    {topScholarship.scheme_name}
+                  </h3>
+                  <p className="text-[10px] text-slate-500 dark:text-zinc-400 mb-3">{topScholarship.authority}</p>
+
+                  {/* Benefit */}
+                  <div className="flex items-center gap-1.5 mb-3">
+                    <Wallet className="h-3.5 w-3.5 text-blue-600 dark:text-cyan-400 shrink-0" />
+                    <span className="text-xs font-bold text-blue-700 dark:text-cyan-300 bg-blue-100 dark:bg-cyan-950/60 border border-blue-200 dark:border-cyan-800 rounded-full px-2.5 py-0.5">
+                      {topScholarship.benefit}
+                    </span>
+                  </div>
+
+                  {/* Match strength + AI snippet */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${strengthColors[topScholarship.match_strength] || strengthColors.Likely}`}>
+                      {topScholarship.match_strength} Match
+                    </span>
+                  </div>
+
+                  {topScholarship.eligibility_explanation && (
+                    <p className="text-[11px] text-slate-600 dark:text-zinc-400 leading-relaxed mb-4 line-clamp-2">
+                      {topScholarship.eligibility_explanation}
+                    </p>
+                  )}
+
+                  {/* CTA */}
+                  <a
+                    href={topScholarship.apply_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 dark:bg-cyan-500 dark:hover:bg-cyan-400 text-white dark:text-slate-950 text-xs font-bold px-4 py-2 transition-all shadow-sm"
+                  >
+                    <Zap className="h-3.5 w-3.5" />
+                    Apply Now
+                  </a>
+                </motion.div>
+              )}
+
+              {/* Top Loan Card */}
+              {topLoan && (
+                <motion.div
+                  initial={{ opacity: 0, x: 16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: 0.1 }}
+                  className="relative rounded-2xl overflow-hidden border border-indigo-200/80 dark:border-pink-800/40 bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-indigo-950/50 dark:via-zinc-900 dark:to-pink-950/30 p-5 shadow-md shadow-indigo-100/60 dark:shadow-pink-950/40"
+                >
+                  {/* Decorative glow */}
+                  <div className="pointer-events-none absolute -top-8 -right-8 h-32 w-32 rounded-full bg-indigo-400/10 dark:bg-pink-400/5 blur-2xl" />
+
+                  {/* Label */}
+                  <div className="flex items-center gap-1.5 mb-3">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600 dark:bg-[#ff2d78] shadow-sm">
+                      <TrendingUp className="h-4 w-4 text-white" />
+                    </div>
+                    <span className="text-[10px] font-extrabold text-indigo-700 dark:text-pink-400 uppercase tracking-widest">
+                      Best Loan Scheme
+                    </span>
+                  </div>
+
+                  {/* Name */}
+                  <h3 className="font-display font-extrabold text-sm text-slate-900 dark:text-white leading-snug mb-1">
+                    {topLoan.scheme_name}
+                  </h3>
+                  <p className="text-[10px] text-slate-500 dark:text-zinc-400 mb-3">{topLoan.authority}</p>
+
+                  {/* Benefit */}
+                  <div className="flex items-center gap-1.5 mb-3">
+                    <IndianRupee className="h-3.5 w-3.5 text-indigo-600 dark:text-pink-400 shrink-0" />
+                    <span className="text-xs font-bold text-indigo-700 dark:text-pink-300 bg-indigo-100 dark:bg-pink-950/60 border border-indigo-200 dark:border-pink-800 rounded-full px-2.5 py-0.5">
+                      {topLoan.benefit}
+                    </span>
+                  </div>
+
+                  {/* Match strength + AI snippet */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${strengthColors[topLoan.match_strength] || strengthColors.Likely}`}>
+                      {topLoan.match_strength} Match
+                    </span>
+                  </div>
+
+                  {topLoan.eligibility_explanation && (
+                    <p className="text-[11px] text-slate-600 dark:text-zinc-400 leading-relaxed mb-4 line-clamp-2">
+                      {topLoan.eligibility_explanation}
+                    </p>
+                  )}
+
+                  {/* CTA */}
+                  <a
+                    href={topLoan.apply_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 dark:bg-gradient-to-r dark:from-[#ff2d78] dark:to-[#bd00ff] text-white text-xs font-bold px-4 py-2 transition-all shadow-sm"
+                  >
+                    <Zap className="h-3.5 w-3.5" />
+                    Apply Now
+                  </a>
+                </motion.div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Search & Filter bar */}
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">

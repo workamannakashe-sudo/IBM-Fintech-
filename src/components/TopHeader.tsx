@@ -2,12 +2,14 @@ import React, { useState } from "react";
 import { useFinancial } from "../context/FinancialContext";
 import { useGamification } from "../context/GamificationContext";
 import { useTheme } from "../context/ThemeContext";
+import { useNetworkStatus } from "../utils/offlineManager";
 import {
   Search,
   Bell,
   Sun,
   Moon,
   Menu,
+  WifiOff,
 } from "lucide-react";
 
 interface TopHeaderProps {
@@ -22,6 +24,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   const { profile, currency, transactions } = useFinancial();
   const { streak } = useGamification();
   const { theme, toggleTheme } = useTheme();
+  const { isOnline, wasOffline } = useNetworkStatus();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [showNotifications, setShowNotifications] = useState(false);
@@ -151,6 +154,28 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                 </button>
               </div>
             </div>
+          )}
+        </div>
+
+        {/* Network Status Pill */}
+        <div
+          className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
+            isOnline
+              ? "bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-300"
+              : "bg-amber-50/90 dark:bg-amber-950/50 border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-200 animate-pulse"
+          }`}
+          title={isOnline ? "All systems synced with local storage & cloud" : "Offline mode active — changes stored locally"}
+        >
+          {isOnline ? (
+            <>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]" />
+              <span>{wasOffline ? "Back Online ✨" : "Online"}</span>
+            </>
+          ) : (
+            <>
+              <WifiOff className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span>Offline Mode</span>
+            </>
           )}
         </div>
 
