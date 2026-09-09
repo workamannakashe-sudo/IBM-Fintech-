@@ -1,36 +1,22 @@
-// BudgetMitra Financial Context Provider (FinancialContext.tsx)
-import React, { createContext, useContext, useState, useEffect, useMemo } from "react";
-import { autoCategorizeExpense, explainAnomaly } from "../services/gemini";
-import { calculateHealthScore } from "../utils/health";
+// FinancialContext.tsx — BudgetMitra Financial Context (Composition Layer)
+// =========================================================================
+// This file is the SINGLE public API surface for all consumers via useFinancial().
+// Internally it composes AuthContext + LedgerContext — all logic lives there.
+//
+// SPLITTING RATIONALE:
+//   • AuthProvider  — auth state (isAuthenticated, login, register, logout)
+//   • LedgerProvider — ledger state (transactions, budgets, goals, loans, profile)
+//   • FinancialProvider (here) — wires the two together, seeds ledger after auth
+//
+// ZERO BREAKING CHANGES: useFinancial() returns the exact same shape as before.
+// =========================================================================
+
+import React, { createContext, useContext } from "react";
+import { AuthProvider, useAuth } from "./AuthContext";
+import { LedgerProvider, useLedger } from "./LedgerContext";
 import type { HealthBreakdown } from "../utils/health";
-import { syncTransactionsToGoogleSheets } from "../services/sheetsSync";
-import { supabase, isSupabaseConfigured } from "../utils/supabase/client";
-import { hashPassword, isPlaintextPassword } from "../utils/security";
-import {
-  DEFAULT_PROFILE_USD_STUDENT,
-  DEFAULT_BUDGETS_USD_STUDENT,
-  SEED_TRANSACTIONS_USD_STUDENT,
-  DEFAULT_GOALS_USD_STUDENT,
-  DEFAULT_LOANS_USD_STUDENT,
-  DEFAULT_PROFILE_INR_STUDENT,
-  DEFAULT_BUDGETS_INR_STUDENT,
-  SEED_TRANSACTIONS_INR_STUDENT,
-  DEFAULT_GOALS_INR_STUDENT,
-  DEFAULT_LOANS_INR_STUDENT,
-  DEFAULT_PROFILE_USD_PROFESSIONAL,
-  DEFAULT_BUDGETS_USD_PROFESSIONAL,
-  SEED_TRANSACTIONS_USD_PROFESSIONAL,
-  DEFAULT_GOALS_USD_PROFESSIONAL,
-  DEFAULT_LOANS_USD_PROFESSIONAL,
-  DEFAULT_PROFILE_INR_PROFESSIONAL,
-  DEFAULT_BUDGETS_INR_PROFESSIONAL,
-  SEED_TRANSACTIONS_INR_PROFESSIONAL,
-  DEFAULT_GOALS_INR_PROFESSIONAL,
-  DEFAULT_LOANS_INR_PROFESSIONAL,
-  generateGuestTransactions,
-  GUEST_GAMIFICATION_SEED,
-} from "../services/financialSeeds";
-import { loadUserSupabaseData } from "../services/supabaseFinancial";
+
+// ─── Public domain types (re-exported so consumers keep the same imports) ────
 
 export interface Transaction {
   id: string;
@@ -76,51 +62,6 @@ export interface StudentLoan {
   type: "Subsidized" | "Unsubsidized" | "Personal" | "Home";
 }
 
-interface FinancialContextType {
-  profile: StudentProfile;
-  transactions: Transaction[];
-  goals: SavingsGoal[];
-  loans: StudentLoan[];
-  budgets: Record<string, number>;
-  currency: "USD" | "INR";
-  userType: "Student" | "Professional";
-  syncUrl: string;
-  syncStatus: "synced" | "pending" | "offline" | "unconfigured";
-  healthScore: number;
-  healthGrade: string;
-  healthBreakdown: HealthBreakdown;
-  dailyBurnRate: number;
-  totalSpentThisMonth: number;
-  projectedBurnoutDay: string;
-  burnRateMultiplier: number;
-  isAuthenticated: boolean;
-  isGuest: boolean;
-  supabaseStatus: "connected" | "local" | "syncing" | "error";
-  preferredLanguage: "en" | "hi" | "mr";
-  setPreferredLanguage: (lang: "en" | "hi" | "mr") => void;
-  setBurnRateMultiplier: (val: number) => void;
-  setCurrency: (curr: "USD" | "INR") => void;
-  setUserType: (type: "Student" | "Professional") => void;
-  setSyncUrl: (url: string) => void;
-  triggerSync: () => Promise<boolean>;
-  updateProfile: (profile: Partial<StudentProfile>) => void;
-  addTransaction: (description: string, amount: number, date?: string, category?: string) => Promise<Transaction>;
-  addCSVTransactions: (rawList: Array<{ date: string; description: string; amount: number; category?: string }>) => Promise<number>;
-  deleteTransaction: (id: string) => void;
-  updateBudgetLimit: (category: string, limit: number) => void;
-  addSavingsGoal: (name: string, target: number, current: number) => void;
-  updateGoalSavings: (id: string, amount: number) => void;
-  deleteSavingsGoal: (id: string) => void;
-  updateLoanExtraPayment: (id: string, extraPayment: number) => void;
-  resetDemoData: () => void;
-  login: (email: string, password: string, userType: "Student" | "Professional", currency: "USD" | "INR", monthlyAllowance?: number) => Promise<{ success: boolean; error?: string }>;
-  registerUser: (email: string, password: string, name: string, userType: "Student" | "Professional", currency: "USD" | "INR", monthlyAllowance?: number, additionalDetails?: Partial<StudentProfile>) => Promise<{ success: boolean; error?: string }>;
-  loginAsGuest: (userType: "Student" | "Professional", currency: "USD" | "INR", monthlyAllowance?: number) => void;
-  logout: () => void;
-}
-
-const FinancialContext = createContext<FinancialContextType | undefined>(undefined);
-
 export interface UserAccount {
   email: string;
   password: string;
@@ -136,898 +77,190 @@ export interface UserAccount {
   createdAt: string;
 }
 
-const getStoredUserAccounts = (): Record<string, UserAccount> => {
-  try {
-    const raw = localStorage.getItem("bm_user_accounts");
-    if (!raw) return {};
-    return JSON.parse(raw);
-  } catch {
-    return {};
-  }
-};
+// ─── Unified context type (identical public surface to original) ─────────────
 
-const saveUserAccountToRegistry = (account: UserAccount) => {
-  try {
-    const accounts = getStoredUserAccounts();
-    accounts[account.email.toLowerCase().trim()] = account;
-    localStorage.setItem("bm_user_accounts", JSON.stringify(accounts));
-  } catch (e) {
-    console.error("Failed to save user account to local registry:", e);
-  }
-};
+interface FinancialContextType {
+  // Ledger
+  profile: StudentProfile;
+  transactions: Transaction[];
+  goals: SavingsGoal[];
+  loans: StudentLoan[];
+  budgets: Record<string, number>;
+  syncUrl: string;
+  syncStatus: "synced" | "pending" | "offline" | "unconfigured";
+  healthScore: number;
+  healthGrade: string;
+  healthBreakdown: HealthBreakdown;
+  dailyBurnRate: number;
+  totalSpentThisMonth: number;
+  projectedBurnoutDay: string;
+  burnRateMultiplier: number;
+  setBurnRateMultiplier: (val: number) => void;
+  setSyncUrl: (url: string) => void;
+  triggerSync: () => Promise<boolean>;
+  updateProfile: (updates: Partial<StudentProfile>) => void;
+  addTransaction: (description: string, amount: number, date?: string, category?: string) => Promise<Transaction>;
+  addCSVTransactions: (rawList: Array<{ date: string; description: string; amount: number; category?: string }>) => Promise<number>;
+  deleteTransaction: (id: string) => void;
+  updateBudgetLimit: (category: string, limit: number) => void;
+  addSavingsGoal: (name: string, target: number, current: number) => void;
+  updateGoalSavings: (id: string, amount: number) => void;
+  deleteSavingsGoal: (id: string) => void;
+  updateLoanExtraPayment: (id: string, extraPayment: number) => void;
+  resetDemoData: () => void;
+  // Auth
+  currency: "USD" | "INR";
+  userType: "Student" | "Professional";
+  isAuthenticated: boolean;
+  isGuest: boolean;
+  supabaseStatus: "connected" | "local" | "syncing" | "error";
+  preferredLanguage: "en" | "hi" | "mr";
+  setPreferredLanguage: (lang: "en" | "hi" | "mr") => void;
+  setCurrency: (curr: "USD" | "INR") => void;
+  setUserType: (type: "Student" | "Professional") => void;
+  login: (email: string, password: string, userType: "Student" | "Professional", currency: "USD" | "INR", monthlyAllowance?: number) => Promise<{ success: boolean; error?: string }>;
+  registerUser: (email: string, password: string, name: string, userType: "Student" | "Professional", currency: "USD" | "INR", monthlyAllowance?: number, additionalDetails?: Partial<StudentProfile>) => Promise<{ success: boolean; error?: string }>;
+  loginAsGuest: (userType: "Student" | "Professional", currency: "USD" | "INR", monthlyAllowance?: number) => void;
+  logout: () => void;
+}
 
-const findUserAccountInRegistry = (email: string): UserAccount | undefined => {
-  const accounts = getStoredUserAccounts();
-  return accounts[email.toLowerCase().trim()];
-};
+const FinancialContext = createContext<FinancialContextType | undefined>(undefined);
 
-// Pre-computed SHA-256 of "demo1234" — avoids async init in a sync context.
-// Verified value: hashPassword("demo1234") === this digest.
-const DEMO_PASSWORD_HASH = "0ead2060b65992dca4769af601a1b3a35ef38cfad2c2c465bb160ea764157c5d";
+// ─── Inner bridge: reads both sub-contexts and merges into one value ──────────
 
-const ensureDemoAccount = (): UserAccount => {
-  const demoEmail = "rahul@budgetmitra.in";
-  let demo = findUserAccountInRegistry(demoEmail);
-  if (!demo) {
-    demo = {
-      email: demoEmail,
-      password: DEMO_PASSWORD_HASH,
-      name: "Rahul Sharma (Demo)",
-      userType: "Student",
-      currency: "INR",
-      profile: DEFAULT_PROFILE_INR_STUDENT,
-      budgets: DEFAULT_BUDGETS_INR_STUDENT,
-      transactions: SEED_TRANSACTIONS_INR_STUDENT,
-      goals: DEFAULT_GOALS_INR_STUDENT,
-      loans: DEFAULT_LOANS_INR_STUDENT,
-      createdAt: new Date().toISOString(),
-    };
-    saveUserAccountToRegistry(demo);
-  } else if (isPlaintextPassword(demo.password)) {
-    // Migrate legacy plaintext demo password to hashed form
-    demo.password = DEMO_PASSWORD_HASH;
-    saveUserAccountToRegistry(demo);
-  }
-  return demo;
-};
+const FinancialBridge: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const auth = useAuth();
+  const ledger = useLedger();
 
-export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Authentication & Mode State
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return localStorage.getItem("bm_authenticated") === "true";
-  });
+  // Wrap ledger mutations that need dbProfileId from auth
+  const updateProfile = (updates: Partial<StudentProfile>) =>
+    ledger.updateProfile(updates, auth.dbProfileId);
 
-  const [isGuest, setIsGuest] = useState<boolean>(() => {
-    return localStorage.getItem("bm_is_guest") === "true";
-  });
+  const addTransaction = (description: string, amount: number, date?: string, category?: string) =>
+    ledger.addTransaction(description, amount, date, category, auth.dbProfileId);
 
-  const [userType, setUserTypeState] = useState<"Student" | "Professional">(() => {
-    return (localStorage.getItem("bm_user_type") as "Student" | "Professional") || "Student";
-  });
+  const deleteTransaction = (id: string) =>
+    ledger.deleteTransaction(id, auth.dbProfileId);
 
-  const [currency, setCurrencyState] = useState<"USD" | "INR">(() => {
-    return (localStorage.getItem("bm_currency") as "USD" | "INR") || "INR";
-  });
+  const updateBudgetLimit = (category: string, limit: number) =>
+    ledger.updateBudgetLimit(category, limit, auth.dbProfileId);
 
-  const [preferredLanguage, setPreferredLanguageState] = useState<"en" | "hi" | "mr">(() => {
-    return (localStorage.getItem("bm_language") as "en" | "hi" | "mr") || "en";
-  });
+  const addSavingsGoal = (name: string, target: number, current: number) =>
+    ledger.addSavingsGoal(name, target, current, auth.dbProfileId);
 
-  const supabaseStatus: "connected" | "local" | "syncing" | "error" =
-    isSupabaseConfigured() ? "connected" : "local";
-  const [dbProfileId, setDbProfileId] = useState<string | null>(null);
+  const deleteSavingsGoal = (id: string) =>
+    ledger.deleteSavingsGoal(id, auth.dbProfileId);
 
-  // Core Ledger State
-  const [profile, setProfile] = useState<StudentProfile>(() => {
-    const saved = localStorage.getItem("bm_profile");
-    if (saved) {
-      try { return JSON.parse(saved); } catch { /* ignore */ }
-    }
-    return DEFAULT_PROFILE_INR_STUDENT;
-  });
+  const resetDemoData = () =>
+    ledger.resetDemoData(auth.currency, auth.userType);
 
-  const [budgets, setBudgets] = useState<Record<string, number>>(() => {
-    const saved = localStorage.getItem("bm_budgets");
-    if (saved) {
-      try { return JSON.parse(saved); } catch { /* ignore */ }
-    }
-    return DEFAULT_BUDGETS_INR_STUDENT;
-  });
-
-  const [transactions, setTransactions] = useState<Transaction[]>(() => {
-    const saved = localStorage.getItem("bm_transactions");
-    if (saved) {
-      try { return JSON.parse(saved); } catch { /* ignore */ }
-    }
-    return SEED_TRANSACTIONS_INR_STUDENT;
-  });
-
-  const [goals, setGoals] = useState<SavingsGoal[]>(() => {
-    const saved = localStorage.getItem("bm_goals");
-    if (saved) {
-      try { return JSON.parse(saved); } catch { /* ignore */ }
-    }
-    return DEFAULT_GOALS_INR_STUDENT;
-  });
-
-  const [loans, setLoans] = useState<StudentLoan[]>(() => {
-    const saved = localStorage.getItem("bm_loans");
-    if (saved) {
-      try { return JSON.parse(saved); } catch { /* ignore */ }
-    }
-    return DEFAULT_LOANS_INR_STUDENT;
-  });
-
-  // Burn Rate & Cloud Sync
-  const [burnRateMultiplier, setBurnRateMultiplier] = useState<number>(1.0);
-  const [syncUrl, setSyncUrlState] = useState<string>(() => localStorage.getItem("bm_sync_url") || "");
-  const [syncStatus, setSyncStatus] = useState<"synced" | "pending" | "offline" | "unconfigured">(
-    syncUrl ? "synced" : "unconfigured"
-  );
-
-  // Persistence to LocalStorage and Active User Account
-  useEffect(() => {
-    localStorage.setItem("bm_profile", JSON.stringify(profile));
-    const currentEmail = localStorage.getItem("bm_current_user_email");
-    if (currentEmail) {
-      const existing = findUserAccountInRegistry(currentEmail);
-      if (existing) {
-        saveUserAccountToRegistry({ ...existing, profile });
-      }
-    }
-  }, [profile]);
-
-  useEffect(() => {
-    localStorage.setItem("bm_budgets", JSON.stringify(budgets));
-    const currentEmail = localStorage.getItem("bm_current_user_email");
-    if (currentEmail) {
-      const existing = findUserAccountInRegistry(currentEmail);
-      if (existing) {
-        saveUserAccountToRegistry({ ...existing, budgets });
-      }
-    }
-  }, [budgets]);
-
-  useEffect(() => {
-    localStorage.setItem("bm_transactions", JSON.stringify(transactions));
-    const currentEmail = localStorage.getItem("bm_current_user_email");
-    if (currentEmail) {
-      const existing = findUserAccountInRegistry(currentEmail);
-      if (existing) {
-        saveUserAccountToRegistry({ ...existing, transactions });
-      }
-    }
-  }, [transactions]);
-
-  useEffect(() => {
-    localStorage.setItem("bm_goals", JSON.stringify(goals));
-    const currentEmail = localStorage.getItem("bm_current_user_email");
-    if (currentEmail) {
-      const existing = findUserAccountInRegistry(currentEmail);
-      if (existing) {
-        saveUserAccountToRegistry({ ...existing, goals });
-      }
-    }
-  }, [goals]);
-
-  useEffect(() => {
-    localStorage.setItem("bm_loans", JSON.stringify(loans));
-    const currentEmail = localStorage.getItem("bm_current_user_email");
-    if (currentEmail) {
-      const existing = findUserAccountInRegistry(currentEmail);
-      if (existing) {
-        saveUserAccountToRegistry({ ...existing, loans });
-      }
-    }
-  }, [loans]);
-
-  useEffect(() => {
-    localStorage.setItem("bm_currency", currency);
-  }, [currency]);
-
-  useEffect(() => {
-    localStorage.setItem("bm_user_type", userType);
-  }, [userType]);
-
-  useEffect(() => {
-    localStorage.setItem("bm_language", preferredLanguage);
-  }, [preferredLanguage]);
-
-  useEffect(() => {
-    localStorage.setItem("bm_authenticated", String(isAuthenticated));
-    localStorage.setItem("bm_is_guest", String(isGuest));
-  }, [isAuthenticated, isGuest]);
-
-  // Hydrate Supabase on mount
-  useEffect(() => {
-    if (!isSupabaseConfigured()) return;
-
-    supabase.auth.getSession().then(({ data }: { data: { session: any } }) => {
-      const session = data?.session;
-      if (session?.user) {
-        setIsAuthenticated(true);
-        setIsGuest(false);
-        loadUserSupabaseData(session.user.email).then((data) => {
-          if (data) {
-            setProfile(data.profile);
-            setTransactions(data.transactions);
-            setBudgets(data.budgets);
-            setGoals(data.goals);
-            setLoans(data.loans);
-            setDbProfileId(data.profileId);
-          }
-        });
-      }
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
-      if (session?.user) {
-        setIsAuthenticated(true);
-        setIsGuest(false);
-        loadUserSupabaseData(session.user.email).then((data) => {
-          if (data) {
-            setProfile(data.profile);
-            setTransactions(data.transactions);
-            setBudgets(data.budgets);
-            setGoals(data.goals);
-            setLoans(data.loans);
-            setDbProfileId(data.profileId);
-          }
-        });
-      } else if (!isGuest) {
-        setIsAuthenticated(false);
-        setDbProfileId(null);
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [isGuest]);
-
-  // Total spent this month
-  const totalSpentThisMonth = useMemo(() => {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-
-    return transactions
-      .filter((t) => {
-        const txDate = new Date(t.date);
-        return txDate.getFullYear() === currentYear && txDate.getMonth() === currentMonth;
-      })
-      .reduce((sum, t) => sum + t.amount, 0);
-  }, [transactions]);
-
-  // Daily Burn Rate Calculation
-  const dailyBurnRate = useMemo(() => {
-    const now = new Date();
-    const currentDay = Math.max(1, now.getDate());
-    const rawBurnRate = totalSpentThisMonth / currentDay;
-    return rawBurnRate * burnRateMultiplier;
-  }, [totalSpentThisMonth, burnRateMultiplier]);
-
-  // Projected Burnout Day
-  const projectedBurnoutDay = useMemo(() => {
-    const totalBudget = profile.monthlyAllowance > 0
-      ? profile.monthlyAllowance
-      : Object.values(budgets).reduce((a, b) => a + b, 0);
-
-    const remainingBudget = Math.max(0, totalBudget - totalSpentThisMonth);
-    if (dailyBurnRate <= 0) return "End of Month";
-
-    const daysRemainingOfRunway = Math.floor(remainingBudget / dailyBurnRate);
-    const now = new Date();
-    const burnoutDate = new Date(now.getTime() + daysRemainingOfRunway * 24 * 60 * 60 * 1000);
-
-    const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    if (burnoutDate.getDate() > lastDayOfMonth || burnoutDate.getMonth() !== now.getMonth()) {
-      return "End of Month (Safe)";
-    }
-    return burnoutDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  }, [profile.monthlyAllowance, budgets, totalSpentThisMonth, dailyBurnRate]);
-
-  // Financial Health Score Calculation (4 Pillars)
-  const healthBreakdown: HealthBreakdown = useMemo(() => {
-    const totalBudget = profile.monthlyAllowance > 0
-      ? profile.monthlyAllowance
-      : Object.values(budgets).reduce((a, b) => a + b, 0);
-
-    const totalSavingsTarget = goals.reduce((acc, g) => acc + g.target, 0);
-    const totalActualSavings = goals.reduce((acc, g) => acc + g.current, 0);
-
-    const anomalyCount = transactions.filter((t) => t.isAnomaly).length;
-
-    // Categories over budget count
-    const categoryTotals: Record<string, number> = {};
-    transactions.forEach((t) => {
-      categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
-    });
-
-    let overBudgetCount = 0;
-    Object.keys(budgets).forEach((cat) => {
-      if (budgets[cat] > 0 && (categoryTotals[cat] || 0) > budgets[cat]) {
-        overBudgetCount++;
-      }
-    });
-
-    const now = new Date();
-    const daysInMonth = now.getDate();
-    const uniqueLoggingDays = new Set(transactions.map((t) => t.date.split("T")[0])).size;
-
-    return calculateHealthScore({
-      monthlyIncome: profile.monthlyAllowance,
-      totalExpenses: totalSpentThisMonth,
-      totalBudget,
-      savingsGoalTarget: totalSavingsTarget,
-      actualSavings: totalActualSavings,
-      anomalyCount,
-      categoriesOverBudgetCount: overBudgetCount,
-      activeLoggingDays: uniqueLoggingDays,
-      elapsedDaysInMonth: daysInMonth,
-    });
-  }, [profile.monthlyAllowance, budgets, goals, transactions, totalSpentThisMonth]);
-
-  const healthScore = healthBreakdown.score;
-  const healthGrade = healthBreakdown.grade;
-
-  // Actions
+  // setPreferredLanguage also updates profile.preferred_language
   const setPreferredLanguage = (lang: "en" | "hi" | "mr") => {
-    setPreferredLanguageState(lang);
-    setProfile((prev) => ({ ...prev, preferred_language: lang }));
+    auth.setPreferredLanguage(lang);
+    ledger.updateProfile({ preferred_language: lang }, auth.dbProfileId);
   };
 
-  const setCurrency = (curr: "USD" | "INR") => {
-    setCurrencyState(curr);
-  };
+  // logout needs to snapshot current ledger state
+  const logout = () =>
+    auth.logout({
+      profile: ledger.profile,
+      budgets: ledger.budgets,
+      transactions: ledger.transactions,
+      goals: ledger.goals,
+      loans: ledger.loans,
+    });
 
-  const setUserType = (type: "Student" | "Professional") => {
-    setUserTypeState(type);
-  };
-
-  const setSyncUrl = (url: string) => {
-    setSyncUrlState(url);
-    localStorage.setItem("bm_sync_url", url);
-    setSyncStatus(url ? "synced" : "unconfigured");
-  };
-
-  const triggerSync = async (): Promise<boolean> => {
-    if (!syncUrl) return false;
-    setSyncStatus("pending");
-    try {
-      const success = await syncTransactionsToGoogleSheets(syncUrl, transactions);
-      setSyncStatus(success ? "synced" : "offline");
-      return success;
-    } catch {
-      setSyncStatus("offline");
-      return false;
-    }
-  };
-
-  const updateProfile = (updated: Partial<StudentProfile>) => {
-    setProfile((prev) => ({ ...prev, ...updated }));
-    if (isSupabaseConfigured() && dbProfileId) {
-      supabase.from("profiles").update(updated).eq("id", dbProfileId).then();
-    }
-  };
-
-  const addTransaction = async (
-    description: string,
-    amount: number,
-    date?: string,
-    category?: string
-  ): Promise<Transaction> => {
-    const txDate = date || new Date().toISOString().split("T")[0];
-    const parsedCategory = category || (await autoCategorizeExpense(description));
-
-    // Check Anomaly threshold
-    const categoryTx = transactions.filter((t) => t.category === parsedCategory);
-    const avgCategorySpend = categoryTx.length > 0
-      ? categoryTx.reduce((sum, t) => sum + t.amount, 0) / categoryTx.length
-      : 20;
-
-    const isAnomaly = categoryTx.length >= 2 && amount > avgCategorySpend * 2.0 && amount > 25;
-    let anomalyExplanation: string | undefined;
-
-    if (isAnomaly) {
-      anomalyExplanation = await explainAnomaly(parsedCategory, amount, avgCategorySpend);
-    }
-
-    const newTx: Transaction = {
-      id: `tx_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      date: txDate,
-      description,
-      amount,
-      category: parsedCategory,
-      isAnomaly,
-      anomalyExplanation,
-    };
-
-    setTransactions((prev) => [newTx, ...prev]);
-
-    if (isSupabaseConfigured() && dbProfileId) {
-      supabase.from("transactions").insert({
-        profile_id: dbProfileId,
-        date: newTx.date,
-        description: newTx.description,
-        amount: newTx.amount,
-        category: newTx.category,
-        is_anomaly: newTx.isAnomaly,
-        anomaly_explanation: newTx.anomalyExplanation,
-      }).then();
-    }
-
-    return newTx;
-  };
-
-  const addCSVTransactions = async (
-    rawList: Array<{ date: string; description: string; amount: number; category?: string }>
-  ): Promise<number> => {
-    const processed: Transaction[] = [];
-    for (const item of rawList) {
-      const cat = item.category || (await autoCategorizeExpense(item.description));
-      processed.push({
-        id: `csv_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-        date: item.date,
-        description: item.description,
-        amount: item.amount,
-        category: cat,
-        isAnomaly: false,
-      });
-    }
-
-    setTransactions((prev) => [...processed, ...prev]);
-    return processed.length;
-  };
-
-  const deleteTransaction = (id: string) => {
-    setTransactions((prev) => prev.filter((t) => t.id !== id));
-    if (isSupabaseConfigured() && dbProfileId) {
-      supabase.from("transactions").delete().eq("id", id).then();
-    }
-  };
-
-  const updateBudgetLimit = (category: string, limit: number) => {
-    setBudgets((prev) => ({ ...prev, [category]: Math.max(0, limit) }));
-    if (isSupabaseConfigured() && dbProfileId) {
-      supabase.from("budgets").upsert({
-        profile_id: dbProfileId,
-        category,
-        monthly_limit: Math.max(0, limit),
-      }).then();
-    }
-  };
-
-  const addSavingsGoal = (name: string, target: number, current: number) => {
-    const newGoal: SavingsGoal = {
-      id: `goal_${Date.now()}`,
-      name,
-      target: Math.max(1, target),
-      current: Math.max(0, current),
-    };
-    setGoals((prev) => [...prev, newGoal]);
-    if (isSupabaseConfigured() && dbProfileId) {
-      supabase.from("savings_goals").insert({
-        profile_id: dbProfileId,
-        name: newGoal.name,
-        target_amount: newGoal.target,
-        current_amount: newGoal.current,
-      }).then();
-    }
-  };
-
-  const updateGoalSavings = (id: string, amount: number) => {
-    setGoals((prev) =>
-      prev.map((g) => (g.id === id ? { ...g, current: Math.max(0, g.current + amount) } : g))
-    );
-  };
-
-  const deleteSavingsGoal = (id: string) => {
-    setGoals((prev) => prev.filter((g) => g.id !== id));
-    if (isSupabaseConfigured() && dbProfileId) {
-      supabase.from("savings_goals").delete().eq("id", id).then();
-    }
-  };
-
-  const updateLoanExtraPayment = (id: string, extraPayment: number) => {
-    setLoans((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, extraPayment: Math.max(0, extraPayment) } : l))
-    );
-  };
-
-  const resetDemoData = () => {
-    if (currency === "INR") {
-      setProfile(userType === "Student" ? DEFAULT_PROFILE_INR_STUDENT : DEFAULT_PROFILE_INR_PROFESSIONAL);
-      setBudgets(userType === "Student" ? DEFAULT_BUDGETS_INR_STUDENT : DEFAULT_BUDGETS_INR_PROFESSIONAL);
-      setTransactions(userType === "Student" ? SEED_TRANSACTIONS_INR_STUDENT : SEED_TRANSACTIONS_INR_PROFESSIONAL);
-      setGoals(userType === "Student" ? DEFAULT_GOALS_INR_STUDENT : DEFAULT_GOALS_INR_PROFESSIONAL);
-      setLoans(userType === "Student" ? DEFAULT_LOANS_INR_STUDENT : DEFAULT_LOANS_INR_PROFESSIONAL);
-    } else {
-      setProfile(userType === "Student" ? DEFAULT_PROFILE_USD_STUDENT : DEFAULT_PROFILE_USD_PROFESSIONAL);
-      setBudgets(userType === "Student" ? DEFAULT_BUDGETS_USD_STUDENT : DEFAULT_BUDGETS_USD_PROFESSIONAL);
-      setTransactions(userType === "Student" ? SEED_TRANSACTIONS_USD_STUDENT : SEED_TRANSACTIONS_USD_PROFESSIONAL);
-      setGoals(userType === "Student" ? DEFAULT_GOALS_USD_STUDENT : DEFAULT_GOALS_USD_PROFESSIONAL);
-      setLoans(userType === "Student" ? DEFAULT_LOANS_USD_STUDENT : DEFAULT_LOANS_USD_PROFESSIONAL);
-    }
-  };
-
-  const login = async (
-    email: string,
-    password: string,
-    selectedUserType: "Student" | "Professional",
-    selectedCurrency: "USD" | "INR",
-    monthlyAllowance?: number
-  ): Promise<{ success: boolean; error?: string }> => {
-    const normalizedEmail = email.trim().toLowerCase();
-    const trimmedPassword = password.trim();
-    const inputHash = await hashPassword(trimmedPassword);
-
-    setUserTypeState(selectedUserType);
-    setCurrencyState(selectedCurrency);
-
-    // ── STEP 1: Demo account — always served locally, no network required ──
-    if (normalizedEmail === "rahul@budgetmitra.in" && inputHash === DEMO_PASSWORD_HASH) {
-      const demo = ensureDemoAccount();
-      setIsAuthenticated(true);
-      setIsGuest(false);
-      localStorage.setItem("bm_current_user_email", normalizedEmail);
-      setProfile(demo.profile);
-      setBudgets(demo.budgets);
-      setTransactions(demo.transactions);
-      setGoals(demo.goals);
-      setLoans(demo.loans);
-      setCurrencyState("INR");
-      setUserTypeState("Student");
-      return { success: true };
-    }
-
-    // ── STEP 2: Supabase PRIMARY auth (when configured with real credentials) ──
-    if (isSupabaseConfigured()) {
-      try {
-        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-          email: normalizedEmail,
-          password: trimmedPassword,
-        });
-
-        if (authData?.user && !authError) {
-          setIsAuthenticated(true);
-          setIsGuest(false);
-          localStorage.setItem("bm_current_user_email", normalizedEmail);
-
-          const remoteData = await loadUserSupabaseData(normalizedEmail);
-          if (remoteData) {
-            setProfile(remoteData.profile);
-            setTransactions(remoteData.transactions);
-            setBudgets(remoteData.budgets);
-            setGoals(remoteData.goals);
-            setLoans(remoteData.loans);
-            setDbProfileId(remoteData.profileId);
-
-            // Cache to localStorage (hashed password, never plaintext)
-            saveUserAccountToRegistry({
-              email: normalizedEmail,
-              password: inputHash,
-              name: remoteData.profile.name,
-              userType: selectedUserType,
-              currency: selectedCurrency,
-              profile: remoteData.profile,
-              budgets: remoteData.budgets,
-              transactions: remoteData.transactions,
-              goals: remoteData.goals,
-              loans: remoteData.loans,
-              dbProfileId: remoteData.profileId,
-              createdAt: new Date().toISOString(),
-            });
-          }
-          return { success: true };
-        }
-
-        // Any Supabase error (4xx user-not-found, wrong-password, 5xx, network) →
-        // fall through to offline local cache, which is the definitive credential store
-        // for locally-registered accounts. Supabase returns the same 400 for both
-        // "user not found" and "wrong password" so we cannot hard-fail here.
-        console.warn("[Auth] Supabase auth did not succeed, checking offline cache:", authError?.message);
-      } catch (networkErr) {
-        console.warn("[Auth] Supabase network error, checking offline cache:", networkErr);
-      }
-    }
-
-    // ── STEP 3: Offline local cache (no network needed, or Supabase not configured) ──
-    const existingAccount = findUserAccountInRegistry(normalizedEmail);
-
-    if (existingAccount) {
-      // Migration shim: silently re-hash any legacy plaintext stored password
-      if (isPlaintextPassword(existingAccount.password)) {
-        const legacyHash = await hashPassword(existingAccount.password);
-        if (legacyHash === inputHash) {
-          existingAccount.password = inputHash;
-          saveUserAccountToRegistry(existingAccount);
-        } else {
-          return { success: false, error: "Incorrect password. Please verify your password and try again." };
-        }
-      }
-
-      if (existingAccount.password === inputHash) {
-        setIsAuthenticated(true);
-        setIsGuest(false);
-        localStorage.setItem("bm_current_user_email", normalizedEmail);
-
-        const loadedProfile = {
-          ...existingAccount.profile,
-          monthlyAllowance: monthlyAllowance || existingAccount.profile.monthlyAllowance || (selectedCurrency === "INR" ? 15000 : 650),
-        };
-        setProfile(loadedProfile);
-        setBudgets(existingAccount.budgets || (existingAccount.currency === "INR" ? DEFAULT_BUDGETS_INR_STUDENT : DEFAULT_BUDGETS_USD_STUDENT));
-        setTransactions(existingAccount.transactions || (existingAccount.currency === "INR" ? SEED_TRANSACTIONS_INR_STUDENT : SEED_TRANSACTIONS_USD_STUDENT));
-        setGoals(existingAccount.goals || (existingAccount.currency === "INR" ? DEFAULT_GOALS_INR_STUDENT : DEFAULT_GOALS_USD_STUDENT));
-        setLoans(existingAccount.loans || (existingAccount.currency === "INR" ? DEFAULT_LOANS_INR_STUDENT : DEFAULT_LOANS_USD_STUDENT));
-        if (existingAccount.currency) setCurrencyState(existingAccount.currency);
-        if (existingAccount.userType) setUserTypeState(existingAccount.userType);
-        if (existingAccount.dbProfileId) setDbProfileId(existingAccount.dbProfileId);
-
-        return { success: true };
-      } else {
-        return { success: false, error: "Incorrect password. Please verify your password and try again." };
-      }
-    }
-
-    return {
-      success: false,
-      error: "No account found with this email. Please check your email or Sign Up first.",
-    };
-  };
-
-  const registerUser = async (
-    email: string,
-    password: string,
-    name: string,
-    selectedUserType: "Student" | "Professional",
-    selectedCurrency: "USD" | "INR",
-    monthlyAllowance?: number,
-    additionalDetails?: Partial<StudentProfile>
-  ): Promise<{ success: boolean; error?: string }> => {
-    const normalizedEmail = email.trim().toLowerCase();
-    const trimmedPassword = password.trim();
-    const cleanName = name.trim();
-
-    setUserTypeState(selectedUserType);
-    setCurrencyState(selectedCurrency);
-
-    const allowanceValue = monthlyAllowance || (selectedCurrency === "INR" ? 15000 : 650);
-
-    const newProfile: StudentProfile = {
-      name: cleanName,
-      major: additionalDetails?.major || additionalDetails?.course || "B.Tech Computer Science",
-      gpa: 8.5,
-      academicYear: `${additionalDetails?.year || 1}st Year`,
-      incomeTier: additionalDetails?.income_bracket || "1-3L",
-      firstGen: false,
-      interests: ["FinTech", "Academics", "Student Life"],
-      monthlyAllowance: allowanceValue,
-      course: additionalDetails?.course || "B.Tech",
-      year: additionalDetails?.year || 1,
-      state: additionalDetails?.state || "Maharashtra",
-      income_bracket: additionalDetails?.income_bracket || "1-3L",
-      category: additionalDetails?.category || "Gen",
-      preferred_language: (additionalDetails?.preferred_language as "en" | "hi" | "mr") || preferredLanguage || "en",
-    };
-
-    const initialBudgets =
-      selectedCurrency === "INR" ? { ...DEFAULT_BUDGETS_INR_STUDENT } : { ...DEFAULT_BUDGETS_USD_STUDENT };
-    const initialTransactions =
-      selectedCurrency === "INR" ? [...SEED_TRANSACTIONS_INR_STUDENT] : [...SEED_TRANSACTIONS_USD_STUDENT];
-    const initialGoals =
-      selectedCurrency === "INR" ? [...DEFAULT_GOALS_INR_STUDENT] : [...DEFAULT_GOALS_USD_STUDENT];
-    const initialLoans =
-      selectedCurrency === "INR" ? [...DEFAULT_LOANS_INR_STUDENT] : [...DEFAULT_LOANS_USD_STUDENT];
-
-    let registeredProfileId: string | null = null;
-
-    if (isSupabaseConfigured()) {
-      try {
-        const { data: signUpData, error } = await supabase.auth.signUp({
-          email: normalizedEmail,
-          password: trimmedPassword,
-          options: { data: { name: cleanName, userType: selectedUserType } },
-        });
-        if (!error && signUpData?.user) {
-          registeredProfileId = signUpData.user.id;
-          setDbProfileId(registeredProfileId);
-        }
-      } catch (err: any) {
-        console.warn("Supabase registration warning:", err);
-      }
-    }
-
-    // Hash password before persisting — never store plaintext
-    const passwordHash = await hashPassword(trimmedPassword);
-
-    // Save to local registry so login ALWAYS works immediately
-    const userAccount: UserAccount = {
-      email: normalizedEmail,
-      password: passwordHash,
-      name: cleanName,
-      userType: selectedUserType,
-      currency: selectedCurrency,
-      profile: newProfile,
-      budgets: initialBudgets,
-      transactions: initialTransactions,
-      goals: initialGoals,
-      loans: initialLoans,
-      dbProfileId: registeredProfileId,
-      createdAt: new Date().toISOString(),
-    };
-
-    saveUserAccountToRegistry(userAccount);
-
-    localStorage.setItem("bm_current_user_email", normalizedEmail);
-    setIsAuthenticated(true);
-    setIsGuest(false);
-    setProfile(newProfile);
-    setBudgets(initialBudgets);
-    setTransactions(initialTransactions);
-    setGoals(initialGoals);
-    setLoans(initialLoans);
-
-    return { success: true };
-  };
-
-  const loginAsGuest = (
-    selectedUserType: "Student" | "Professional",
-    selectedCurrency: "USD" | "INR",
-    monthlyAllowance?: number
-  ) => {
-    setUserTypeState(selectedUserType);
-    setCurrencyState(selectedCurrency);
-    setIsAuthenticated(true);
-    setIsGuest(true);
-
-    const allowance = monthlyAllowance || (selectedCurrency === "INR" ? 12000 : 500);
-
-    const guestProfile: StudentProfile = {
-      name: "Guest Student",
-      major: "B.Tech Computer Science",
-      gpa: 7.8,
-      academicYear: "2nd Year",
-      incomeTier: "1-3L",
-      firstGen: false,
-      interests: ["Campus Life", "Smart Budgeting"],
-      monthlyAllowance: allowance,
-      course: "B.Tech",
-      year: 2,
-      state: "Maharashtra",
-      income_bracket: "1-3L",
-      category: "Gen",
-      preferred_language: "en",
-    };
-
-    // Seed financial data so all pages have demo content
-    const guestBudgets: Record<string, number> = selectedCurrency === "INR"
-      ? { food: 4000, rent: 5000, travel: 1200, entertainment: 800, books: 1000, other: 1000 }
-      : { food: 150, rent: 250, travel: 40, entertainment: 30, books: 30, other: 50 };
-
-    const guestGoals = selectedCurrency === "INR"
-      ? [
-          { id: "gg1", name: "Emergency Tech Reserve", target: 15000, current: 6500 },
-          { id: "gg2", name: "Goa Trip Pool", target: 8000, current: 2000 },
-        ]
-      : [
-          { id: "gg1", name: "Laptop Upgrade Fund", target: 800, current: 320 },
-          { id: "gg2", name: "Vacation Savings", target: 400, current: 100 },
-        ];
-
-    const guestLoans = selectedCurrency === "INR"
-      ? [
-          { id: "gl1", name: "Vidya Lakshmi Education Loan", principal: 200000, interestRate: 8.5, termMonths: 60, extraPayment: 500, type: "Subsidized" as const },
-        ]
-      : [
-          { id: "gl1", name: "Federal Student Loan", principal: 5000, interestRate: 4.99, termMonths: 120, extraPayment: 20, type: "Subsidized" as const },
-        ];
-
-    const guestTransactions = selectedCurrency === "INR" ? generateGuestTransactions() : [];
-
-    setProfile(guestProfile);
-    setBudgets(guestBudgets);
-    setGoals(guestGoals);
-    setLoans(guestLoans);
-    if (guestTransactions.length > 0) setTransactions(guestTransactions);
-
-    // Pre-seed gamification state into localStorage so GamificationContext
-    // picks it up on next render (it reads from localStorage on init).
-    localStorage.setItem("bm_xp", String(GUEST_GAMIFICATION_SEED.xp));
-    localStorage.setItem("bm_level", String(GUEST_GAMIFICATION_SEED.level));
-    localStorage.setItem("bm_streak", String(GUEST_GAMIFICATION_SEED.streak));
-    localStorage.setItem("bm_badges", JSON.stringify(GUEST_GAMIFICATION_SEED.badges));
-    localStorage.setItem("bm_logging_history", JSON.stringify(GUEST_GAMIFICATION_SEED.loggingHistory));
-  };
-
-  const logout = async () => {
-    const currentEmail = localStorage.getItem("bm_current_user_email");
-    if (currentEmail) {
-      const existing = findUserAccountInRegistry(currentEmail);
-      if (existing) {
-        saveUserAccountToRegistry({
-          ...existing,
-          profile,
-          budgets,
-          transactions,
-          goals,
-          loans,
-          currency,
-          userType,
-        });
-      }
-    }
-
-    if (isSupabaseConfigured()) {
-      try {
-        await supabase.auth.signOut();
-      } catch {
-        /* ignore */
-      }
-    }
-    setIsAuthenticated(false);
-    setIsGuest(false);
-    setDbProfileId(null);
-    localStorage.removeItem("bm_authenticated");
-    localStorage.removeItem("bm_is_guest");
-    localStorage.removeItem("bm_current_user_email");
+  const value: FinancialContextType = {
+    // ledger slice
+    profile: ledger.profile,
+    transactions: ledger.transactions,
+    goals: ledger.goals,
+    loans: ledger.loans,
+    budgets: ledger.budgets,
+    syncUrl: ledger.syncUrl,
+    syncStatus: ledger.syncStatus,
+    healthScore: ledger.healthScore,
+    healthGrade: ledger.healthGrade,
+    healthBreakdown: ledger.healthBreakdown,
+    dailyBurnRate: ledger.dailyBurnRate,
+    totalSpentThisMonth: ledger.totalSpentThisMonth,
+    projectedBurnoutDay: ledger.projectedBurnoutDay,
+    burnRateMultiplier: ledger.burnRateMultiplier,
+    setBurnRateMultiplier: ledger.setBurnRateMultiplier,
+    setSyncUrl: ledger.setSyncUrl,
+    triggerSync: ledger.triggerSync,
+    updateProfile,
+    addTransaction,
+    addCSVTransactions: ledger.addCSVTransactions,
+    deleteTransaction,
+    updateBudgetLimit,
+    addSavingsGoal,
+    updateGoalSavings: ledger.updateGoalSavings,
+    deleteSavingsGoal,
+    updateLoanExtraPayment: ledger.updateLoanExtraPayment,
+    resetDemoData,
+    // auth slice
+    currency: auth.currency,
+    userType: auth.userType,
+    isAuthenticated: auth.isAuthenticated,
+    isGuest: auth.isGuest,
+    supabaseStatus: auth.supabaseStatus,
+    preferredLanguage: auth.preferredLanguage,
+    setPreferredLanguage,
+    setCurrency: auth.setCurrency,
+    setUserType: auth.setUserType,
+    login: auth.login,
+    registerUser: auth.registerUser,
+    loginAsGuest: auth.loginAsGuest,
+    logout,
   };
 
   return (
-    <FinancialContext.Provider
-      value={{
-        profile,
-        transactions,
-        goals,
-        loans,
-        budgets,
-        currency,
-        userType,
-        syncUrl,
-        syncStatus,
-        healthScore,
-        healthGrade,
-        healthBreakdown,
-        dailyBurnRate,
-        totalSpentThisMonth,
-        projectedBurnoutDay,
-        burnRateMultiplier,
-        isAuthenticated,
-        isGuest,
-        supabaseStatus,
-        preferredLanguage,
-        setPreferredLanguage,
-        setBurnRateMultiplier,
-        setCurrency,
-        setUserType,
-        setSyncUrl,
-        triggerSync,
-        updateProfile,
-        addTransaction,
-        addCSVTransactions,
-        deleteTransaction,
-        updateBudgetLimit,
-        addSavingsGoal,
-        updateGoalSavings,
-        deleteSavingsGoal,
-        updateLoanExtraPayment,
-        resetDemoData,
-        login,
-        registerUser,
-        loginAsGuest,
-        logout,
-      }}
-    >
+    <FinancialContext.Provider value={value}>
       {children}
     </FinancialContext.Provider>
   );
 };
 
+// ─── FinancialProvider — composes sub-providers in the right order ────────────
+
+export const FinancialProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // LedgerProvider must be rendered first so AuthProvider can call seedLedger.
+  // We use a render-prop pattern via a wrapper component.
+  return (
+    <LedgerProviderWithSeed>
+      {children}
+    </LedgerProviderWithSeed>
+  );
+};
+
+/** Renders LedgerProvider, then AuthProvider that has access to seedLedger via closure. */
+const LedgerProviderWithSeed: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  return (
+    <LedgerProvider>
+      <AuthBridge>
+        {children}
+      </AuthBridge>
+    </LedgerProvider>
+  );
+};
+
+/** Inside LedgerProvider so we can call useLedger().seedLedger as the onAuthSuccess callback. */
+const AuthBridge: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { seedLedger } = useLedger();
+  return (
+    <AuthProvider onAuthSuccess={seedLedger}>
+      <FinancialBridge>
+        {children}
+      </FinancialBridge>
+    </AuthProvider>
+  );
+};
+
+// ─── Public hook — identical signature, zero consumer changes needed ──────────
+
 export const useFinancial = () => {
   const context = useContext(FinancialContext);
-  if (!context) {
-    throw new Error("useFinancial must be used within a FinancialProvider");
-  }
+  if (!context) throw new Error("useFinancial must be used within a FinancialProvider");
   return context;
 };
